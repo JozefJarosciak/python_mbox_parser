@@ -16,13 +16,13 @@ import time
 print("Connecting MYSQL DB")
 try:
     # Imports Credentials for MySQL    #
-    import mysql_database # Importing local mysql_database.py file
+    import mysql_database  # Importing local mysql_database.py file
+
     db_cursor = mysql_database.db_connection.cursor()
     print("DB Connected: " + str(mysql_database.db_connection.fetch_eof_status()))
 except ImportError:
     print('Importing mysql_database.py file failed. Create mysql_database.py file and add to it: '
           'mysql_database = mysql.connector.connect(host="localhost", user="Your MySQL Username", passwd="Your MySQL Password")')
-
 
 path = 'D:/GiganewsArchives/giganews/downloads/usenet-0.akita-inu/'
 print("Processing all files on path: " + str(path))
@@ -54,7 +54,9 @@ for f in files:
 
             # Insert Message ID into message_ids table
             sql = f"SELECT * FROM usenetarchive.message_ids WHERE messageid = '{message['message-id']}' LIMIT 1"
-            db_cursor.execute(sql) ; db_cursor.fetchall() ; number_of_rows = db_cursor.rowcount
+            db_cursor.execute(sql);
+            db_cursor.fetchall();
+            number_of_rows = db_cursor.rowcount
             if number_of_rows == 0:
                 sql = "INSERT INTO usenetarchive.message_ids(messageid) VALUE (%s)"
                 db_cursor.execute(sql, (message['message-id'],))
@@ -67,7 +69,9 @@ for f in files:
             message_from_name = parsed_message.from_[0][0]
             message_from_email = parsed_message.from_[0][1].lower()
             sql = f"SELECT * FROM usenetarchive.from_contacts WHERE from_email = '{message_from_email}' LIMIT 1"
-            db_cursor.execute(sql) ; db_cursor.fetchall() ; number_of_rows = db_cursor.rowcount
+            db_cursor.execute(sql);
+            db_cursor.fetchall();
+            number_of_rows = db_cursor.rowcount
             if number_of_rows == 0:
                 sql = "INSERT INTO usenetarchive.from_contacts(from_name, from_email) VALUES ((%s),(%s))"
                 db_cursor.execute(sql, (message_from_name, message_from_email,))
@@ -82,7 +86,9 @@ for f in files:
             for group_name in newsgroup_names_array:
 
                 sql = f"SELECT * FROM usenetarchive.newsgroup_ids WHERE newsgroupname = '{group_name}' LIMIT 1"
-                db_cursor.execute(sql) ; db_cursor.fetchall() ; number_of_rows = db_cursor.rowcount
+                db_cursor.execute(sql);
+                db_cursor.fetchall();
+                number_of_rows = db_cursor.rowcount
                 if number_of_rows == 0:
                     sql = "INSERT INTO usenetarchive.newsgroup_ids(newsgroupname) VALUE (%s)"
                     db_cursor.execute(sql, (group_name,))
@@ -101,32 +107,15 @@ for f in files:
                     db_cursor.execute(sql)
                     mysql_database.commit()
 
-
-
-
-
-        #           sql = "INSERT INTO usenetarchive.message(postdate, jsondata) VALUES (%s,%s)"
-        #           db_cursor.execute(sql, (parsed_message.date, parsed_message.mail_json,))
-        #           db_connection.commit()
-        #           print(db_cursor.rowcount, "Record Inserted")
+            print("**************************************")
         except Exception as inst:
             print(inst)
             exit()
 
         if i == 2: exit(0)
 
-    print("**************************************")
-
-    #
-
-# newsgroup_ids TABLE
-# CREATE TABLE `newsgroup_ids` (
-#     `id` INT(11) NOT NULL AUTO_INCREMENT,
-#                           `newsgroupname` VARCHAR(255) NULL DEFAULT NULL,
-#                                                                     PRIMARY KEY (`id`),
-#                                                                             UNIQUE INDEX `newsgroupname` (`newsgroupname`)
-# )
-# COLLATE='utf8mb4_0900_ai_ci'
-# ENGINE=InnoDB
-# ;
-# INSERT INTO `usenetarchive`.`newsgroup_ids` (`newsgroupname`) VALUES ('0.akita-inu');
+    # ORIGINAL INSERT OF THE JSON CONTENT - RETIRED NOW
+    #           sql = "INSERT INTO usenetarchive.message(postdate, jsondata) VALUES (%s,%s)"
+    #           db_cursor.execute(sql, (parsed_message.date, parsed_message.mail_json,))
+    #           db_connection.commit()
+    #           print(db_cursor.rowcount, "Record Inserted")
