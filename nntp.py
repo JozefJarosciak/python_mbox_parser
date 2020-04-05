@@ -1,7 +1,7 @@
 import array
 import nntplib
 
-nntp_connection = nntplib.NNTP('news.giganews.com', user='emolinare', password='Giga1974')
+nntp_connection = nntplib.NNTP('news.giganews.com', user='e***', password='G***')
 resp, count, first, last, name = nntp_connection.group('adobe.indesign.windows')
 print('Group', name, 'has', count, 'articles, range', first, 'to', last)
 
