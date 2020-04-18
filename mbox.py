@@ -69,7 +69,7 @@ for f in files:
     is_file_being_processed = 0
 
     try:
-        sql = f"SELECT * FROM usenetarchive.all_files WHERE file_name = '{filename}' LIMIT 1"
+        sql = f"SELECT * FROM all_files WHERE file_name = '{filename}' LIMIT 1"
         # db_cursor = mysql_database.db_connection.cursor()
         db_cursor.execute(sql)
         details = db_cursor.fetchone()
@@ -87,7 +87,7 @@ for f in files:
     if (current_position_in_db > 0) and (current_position_in_db == last_message_count):
         # Move a file from the directory d1 to d2
         try:
-            shutil.move(f, 'E:/GiganewsArchivesProcessed/' + filename + '.gz')
+            shutil.move(f, configuration.processed_path + filename + '.gz')
             print("Moving File: " + filename + ".gz")
         except Exception:
             pass
@@ -95,7 +95,7 @@ for f in files:
     if (file_name == "") or (current_position_in_db==0 and last_message_count==0 and is_file_being_processed==0) or (current_position_in_db < last_message_count and is_file_being_processed == 0):
 
         try:
-            sql = f"INSERT INTO usenetarchive.all_files(file_name, current, total, processing) VALUE ('{filename}', 0, 0 ,1) ON DUPLICATE KEY UPDATE processing=1"
+            sql = f"INSERT INTO all_files(file_name, current, total, processing) VALUE ('{filename}', 0, 0 ,1) ON DUPLICATE KEY UPDATE processing=1"
             # db_cursor = mysql_database.db_connection.cursor()
             db_cursor.execute(sql)
             configuration.db_connection.commit()
@@ -114,7 +114,6 @@ for f in files:
                 shutil.copyfileobj(f_in, f_out)
         print("Unzipped to: " + where2unzip)
         print("Starting to Process MBOX")
-        # where2unzip = 'D:/GiganewsArchives/giganews/downloads/usenet-soc.politics/test/soc.politics.marxism.20140227.mbox'
         mbox = mailbox.mbox(where2unzip)
 
         processing_message_counter = 0
@@ -130,7 +129,7 @@ for f in files:
                     percentage = round(100 * float(processing_message_counter) / float(all_count), 2)
 
                     # Show how many messsages we're processing per minute
-                    sql_count = "SELECT COUNT(*) FROM usenetarchive.all_messages WHERE processed >= NOW() - INTERVAL 1 MINUTE"
+                    sql_count = "SELECT COUNT(*) FROM all_messages WHERE processed >= NOW() - INTERVAL 1 MINUTE"
                     db_cursor.execute(sql_count)
                     messages_per_minute1 = db_cursor.fetchone()[0].real
                     print(filename.replace(".mbox", "") + ": " + str(processing_message_counter) + " of " + str(
@@ -190,7 +189,7 @@ for f in files:
                         message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
                         # print(message_id)
 
-                    sql = """SELECT id FROM usenetarchive.message_ids WHERE messageid = '%s' LIMIT 1""" % message_id
+                    sql = """SELECT id FROM message_ids WHERE messageid = '%s' LIMIT 1""" % message_id
                     # db_cursor = mysql_database.db_connection.cursor()
                     db_cursor.execute(sql)
                     db_cursor.fetchall()
@@ -200,14 +199,14 @@ for f in files:
                         #############################################
                         # CONTINUE ONLY IF MESSAGE ID WASN'T ALREADY PROCESSED
                         #############################################
-                        sql = "INSERT INTO usenetarchive.message_ids(messageid) VALUE (%s)"
+                        sql = "INSERT INTO message_ids(messageid) VALUE (%s)"
                         # db_cursor = mysql_database.db_connection.cursor()
                         db_cursor.execute(sql, (message_id,))
                         configuration.db_connection.commit()
                         sql_message_id = db_cursor.lastrowid
                         # db_cursor.close()
                         # get last insert ID
-                        # db_cursor.execute(f"SELECT id FROM usenetarchive.message_ids WHERE messageid = '{message_id}'  LIMIT 1")
+                        # db_cursor.execute(f"SELECT id FROM message_ids WHERE messageid = '{message_id}'  LIMIT 1")
                         # sql_message_id = db_cursor.fetchone()
 
                         #############################################
@@ -218,21 +217,21 @@ for f in files:
                         except Exception:
                             subject_text = ""
                         # subject_text2 = eval("b'" + subject_text + "'").decode('utf-8') 'ok SEGA it\'nntp_connection your turn now...'
-                        sql = f"SELECT id FROM usenetarchive.message_subject_lines WHERE subject = (%s) LIMIT 1"
+                        sql = f"SELECT id FROM message_subject_lines WHERE subject = (%s) LIMIT 1"
                         # db_cursor = mysql_database.db_connection.cursor()
                         db_cursor.execute(sql, (subject_text,))
                         db_cursor.fetchall()
                         number_of_rows2 = db_cursor.rowcount
                         # db_cursor.close()
                         if number_of_rows2 == 0:
-                            sql = "INSERT INTO usenetarchive.message_subject_lines(subject) VALUE (%s)"
+                            sql = "INSERT INTO message_subject_lines(subject) VALUE (%s)"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (subject_text,))
                             configuration.db_connection.commit()
                             sql_subject_id = db_cursor.lastrowid
                             # db_cursor.close()
                         else:
-                            sql = f"SELECT id FROM usenetarchive.message_subject_lines WHERE subject = (%s) LIMIT 1"
+                            sql = f"SELECT id FROM message_subject_lines WHERE subject = (%s) LIMIT 1"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (subject_text,))
                             sql_subject_id = db_cursor.fetchone()[0]
@@ -257,14 +256,14 @@ for f in files:
                         except Exception:
                             body_text = str(body_text).encode('utf-8', 'surrogatepass').decode('utf-8')
                         try:
-                            sql = "INSERT INTO usenetarchive.message_body(body) VALUE (%s)"
+                            sql = "INSERT INTO message_body(body) VALUE (%s)"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (body_text,))
                             sql_body_id = db_cursor.lastrowid
                             # db_cursor.close()
                         except Exception:
                             body_text = str(body_text).encode('utf-8', 'surrogatepass').decode('utf-8')
-                            sql = "INSERT INTO usenetarchive.message_body(body) VALUE (%s)"
+                            sql = "INSERT INTO message_body(body) VALUE (%s)"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (body_text,))
                             sql_body_id = db_cursor.lastrowid
@@ -304,14 +303,14 @@ for f in files:
                         #    reply_to_name = ""
                         #    reply_to_email = ""
 
-                        sql = f"SELECT id FROM usenetarchive.from_contacts WHERE from_email = (%s) LIMIT 1"
+                        sql = f"SELECT id FROM from_contacts WHERE from_email = (%s) LIMIT 1"
                         # db_cursor = mysql_database.db_connection.cursor()
                         db_cursor.execute(sql, (message_from_email.lower(),))
                         db_cursor.fetchall()
                         number_of_rows3 = db_cursor.rowcount
                         # db_cursor.close()
                         if number_of_rows3 == 0:
-                            sql = "INSERT INTO usenetarchive.from_contacts(from_name, from_email) VALUES ((%s),(%s))"
+                            sql = "INSERT INTO from_contacts(from_name, from_email) VALUES ((%s),(%s))"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql,(message_from_name, message_from_email.lower()))
                             configuration.db_connection.commit()
@@ -319,7 +318,7 @@ for f in files:
                             # db_cursor.close()
                         else:
                             # get last insert ID
-                            sql = f"SELECT id FROM usenetarchive.from_contacts WHERE from_email = (%s) LIMIT 1"
+                            sql = f"SELECT id FROM from_contacts WHERE from_email = (%s) LIMIT 1"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (message_from_email.lower(),))
                             sql_from_id = db_cursor.fetchone()[0]
@@ -332,14 +331,14 @@ for f in files:
                         newsgroup_names_array = message_newsgroup_ids.split(',')
                         for group_name in newsgroup_names_array:
 
-                            sql = f"SELECT id FROM usenetarchive.newsgroup_ids WHERE newsgroupname = '{group_name}' LIMIT 1"
+                            sql = f"SELECT id FROM newsgroup_ids WHERE newsgroupname = '{group_name}' LIMIT 1"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql)
                             db_cursor.fetchall()
                             number_of_rows4 = db_cursor.rowcount
                             # db_cursor.close()
                             if number_of_rows4 == 0:
-                                sql = "INSERT INTO usenetarchive.newsgroup_ids(newsgroupname) VALUE (%s)"
+                                sql = "INSERT INTO newsgroup_ids(newsgroupname) VALUE (%s)"
                                 # db_cursor = mysql_database.db_connection.cursor()
                                 db_cursor.execute(sql, (group_name,))
                                 configuration.db_connection.commit()
@@ -347,20 +346,20 @@ for f in files:
                             # get last insert ID
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(
-                                f"SELECT id FROM usenetarchive.newsgroup_ids WHERE newsgroupname = '{group_name}' LIMIT 1")
+                                f"SELECT id FROM newsgroup_ids WHERE newsgroupname = '{group_name}' LIMIT 1")
                             sql_newsgroup_id = db_cursor.fetchone()
                             # db_cursor.close()
                             #############################################
                             # Update message_newsgroup_ref table with references to which newsgroup this particular message belongs
                             #############################################
-                            sql = f"SELECT messageid FROM usenetarchive.message_newsgroup_ref WHERE messageid={str(sql_message_id)} AND newsgroup={str(sql_newsgroup_id[0])}"
+                            sql = f"SELECT messageid FROM message_newsgroup_ref WHERE messageid={str(sql_message_id)} AND newsgroup={str(sql_newsgroup_id[0])}"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql)
                             db_cursor.fetchall()
                             number_of_rows5 = db_cursor.rowcount
                             # db_cursor.close()
                             if number_of_rows5 == 0:
-                                sql = f"INSERT INTO usenetarchive.message_newsgroup_ref (messageid, newsgroup) VALUES ({sql_message_id},{sql_newsgroup_id[0]})"
+                                sql = f"INSERT INTO message_newsgroup_ref (messageid, newsgroup) VALUES ({sql_message_id},{sql_newsgroup_id[0]})"
                                 # db_cursor = mysql_database.db_connection.cursor()
                                 db_cursor.execute(sql)
                                 configuration.db_connection.commit()
@@ -377,26 +376,26 @@ for f in files:
                             regex = re.compile('\<.*?\>')
                             message_references_array = [el.strip('"') for el in regex.findall(ref)]
                             for reference_message_name in message_references_array:
-                                sql = f"SELECT id FROM usenetarchive.message_ids WHERE messageid='{reference_message_name}' LIMIT 1"
+                                sql = f"SELECT id FROM message_ids WHERE messageid='{reference_message_name}' LIMIT 1"
                                 # db_cursor = mysql_database.db_connection.cursor()
                                 db_cursor.execute(sql)
                                 in_db_id = db_cursor.fetchone()
                                 # db_cursor.close()
                                 has_references = 1
                                 if in_db_id:
-                                    sql = f"INSERT INTO usenetarchive.message_references (messageid, reference) VALUES ({sql_message_id},'{in_db_id[0]}')"
+                                    sql = f"INSERT INTO message_references (messageid, reference) VALUES ({sql_message_id},'{in_db_id[0]}')"
                                     # db_cursor = mysql_database.db_connection.cursor()
                                     db_cursor.execute(sql)
                                     configuration.db_connection.commit()
                                     # db_cursor.close()
                                 else:
-                                    sql = "INSERT INTO usenetarchive.message_ids(messageid) VALUE (%s)"
+                                    sql = "INSERT INTO message_ids(messageid) VALUE (%s)"
                                     # db_cursor = mysql_database.db_connection.cursor()
                                     db_cursor.execute(sql, (reference_message_name,))
                                     configuration.db_connection.commit()
                                     reference_id = db_cursor.lastrowid
                                     # db_cursor.close()
-                                    sql = f"INSERT INTO usenetarchive.message_references (messageid, reference) VALUES ({sql_message_id},'{reference_id}')"
+                                    sql = f"INSERT INTO message_references (messageid, reference) VALUES ({sql_message_id},'{reference_id}')"
                                     # db_cursor = mysql_database.db_connection.cursor()
                                     db_cursor.execute(sql)
                                     configuration.db_connection.commit()
@@ -405,7 +404,7 @@ for f in files:
                         #############################################
                         # Update all_messages table with references to message id and newsgroup id
                         #############################################
-                        sql = f"SELECT has_reference FROM usenetarchive.all_messages WHERE messageid={sql_message_id} LIMIT 1"
+                        sql = f"SELECT has_reference FROM all_messages WHERE messageid={sql_message_id} LIMIT 1"
                         # db_cursor = mysql_database.db_connection.cursor()
                         db_cursor.execute(sql)
                         db_cursor.fetchall()
@@ -418,7 +417,7 @@ for f in files:
                         #                            date_time = dateutil.parser.parse('1 Jan 1970 00:00:00 +0000 (UTC)')
 
                         if number_of_rows6 == 0:
-                            sql = f"INSERT INTO usenetarchive.all_messages (messageid, from_contact, date_time, has_reference ,subject, body) VALUES ((%s),(%s),(%s),(%s),(%s),(%s))"
+                            sql = f"INSERT INTO all_messages (messageid, from_contact, date_time, has_reference ,subject, body) VALUES ((%s),(%s),(%s),(%s),(%s),(%s))"
                             # db_cursor = mysql_database.db_connection.cursor()
                             db_cursor.execute(sql, (
                                 sql_message_id, sql_from_id, date_time, has_references, sql_subject_id, sql_body_id))
@@ -427,7 +426,7 @@ for f in files:
 
                     # INSERT INTO table (id, name, age) VALUES(1, "A", 19) ON DUPLICATE KEY UPDATE name="A", age=19
                     all_count = int(mbox._next_key)
-                    sql = f"INSERT INTO usenetarchive.all_files(file_name, current, total, processing) VALUE ('{filename}',{processing_message_counter},{all_count},1) ON DUPLICATE KEY UPDATE current={processing_message_counter}, total={all_count}, processing=1"
+                    sql = f"INSERT INTO all_files(file_name, current, total, processing) VALUE ('{filename}',{processing_message_counter},{all_count},1) ON DUPLICATE KEY UPDATE current={processing_message_counter}, total={all_count}, processing=1"
                     # db_cursor = mysql_database.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
@@ -436,7 +435,7 @@ for f in files:
 
                     # update DB - marked file as not being processed anymore
                     if processing_message_counter == all_count:
-                        sql = f"INSERT INTO usenetarchive.all_files(file_name, current, total, processing) VALUE ('{filename}',{processing_message_counter},{all_count},0) ON DUPLICATE KEY UPDATE current={processing_message_counter}, total={all_count}, processing=0"
+                        sql = f"INSERT INTO all_files(file_name, current, total, processing) VALUE ('{filename}',{processing_message_counter},{all_count},0) ON DUPLICATE KEY UPDATE current={processing_message_counter}, total={all_count}, processing=0"
                         # db_cursor = mysql_database.db_connection.cursor()
                         db_cursor.execute(sql)
                         configuration.db_connection.commit()
@@ -444,9 +443,9 @@ for f in files:
                         # db_cursor.close()
 
                 except Exception as inst:
+
                     if "Duplicate entry" not in str(inst.args[1]):
-                        print("Error in message #" + str(processing_message_counter) + ": " + str(
-                            inst) + " | " + message_from)
+                        print("Error in message #" + str(processing_message_counter) + ": " + str(inst) + " | " + message_from)
                     else:
                         pass
                         # print("Error in message #" + str(processing_message_counter) + ": " + str(inst) + " | " + message_from)
@@ -467,7 +466,7 @@ for f in files:
 
                 # Move a file from the directory d1 to d2
             try:
-                shutil.move(f, 'E:\\GiganewsArchivesProcessed\\' + filename + '.gz')
+                shutil.move(f, configuration.processed_path + filename + '.gz')
                 print("Moving File: " + filename)
             except Exception:
                 pass
@@ -475,7 +474,105 @@ for f in files:
             print("The file does not exist: " + where2unzip)
         # exit()
     # ORIGINAL INSERT OF THE JSON CONTENT - RETIRED NOW
-    #           sql = "INSERT INTO usenetarchive.message(postdate, jsondata) VALUES (%s,%s)"
-    #           db_cursor.execute(sql, (parsed_message.date, parsed_message.mail_json,))
-    #           db_connection.commit()
-    #           print(db_cursor.rowcount, "Record Inserted")
+    #           sql = "INSERT INTO message(postdate, jsondata) VALUES (%s,%s)"
+#           db_cursor.execute(sql, (parsed_message.date, parsed_message.mail_json,))
+#           db_connection.commit()
+#           print(db_cursor.rowcount, "Record Inserted")
+
+
+#
+#
+# CREATE TABLE IF NOT EXISTS `all_files` (
+#     `file_name` varchar(255) DEFAULT NULL,
+#                                      `current` int(11) DEFAULT NULL,
+#                                                                `total` int(11) DEFAULT NULL,
+#                                                                                        `processing` tinyint(1) unsigned zerofill NOT NULL,
+#                                                                                                                                      UNIQUE KEY `file_name` (`file_name`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `all_messages` (
+#     `messageid` int(11) NOT NULL,
+#                             `from_contact` int(11) NOT NULL,
+#                                                        `date_time` datetime DEFAULT NULL,
+#                                                                                     `has_reference` tinyint(1) DEFAULT NULL,
+#                                                                                                                        `subject` int(11) NOT NULL,
+#                                                                                                                                              `body` int(11) NOT NULL,
+#                                                                                                                                                                 `processed` timestamp NOT NULL DEFAULT current_timestamp(),
+#                                                                                                                                                                                                        UNIQUE KEY `messageid_newsgroup_from` (`messageid`,`from_contact`),
+#                                                                                                                                                                                                                   KEY `messageid` (`messageid`),
+#                                                                                                                                                                                                                       KEY `from_contact` (`from_contact`),
+#                                                                                                                                                                                                                           KEY `date_time` (`date_time`),
+#                                                                                                                                                                                                                               KEY `FK_all_messages_message_subject_lines` (`subject`),
+#                                                                                                                                                                                                                                   KEY `FK_all_messages_message_body` (`body`),
+#                                                                                                                                                                                                                                       KEY `has_reference` (`has_reference`),
+#                                                                                                                                                                                                                                           KEY `all_messages_idx_has_reference` (`has_reference`),
+#                                                                                                                                                                                                                                               CONSTRAINT `FK.from_contact2` FOREIGN KEY (`from_contact`) REFERENCES `from_contacts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+#                                                                                                                                                                                                                                                                                                                                                                        CONSTRAINT `FK.messageid2` FOREIGN KEY (`messageid`) REFERENCES `message_ids` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+#                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         CONSTRAINT `FK_all_messages_message_body` FOREIGN KEY (`body`) REFERENCES `message_body` (`id`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `from_contacts` (
+#     `id` int(11) NOT NULL AUTO_INCREMENT,
+#                           `from_name` varchar(255) DEFAULT NULL,
+#                                                            `from_email` varchar(255) DEFAULT NULL,
+#                                                                                              PRIMARY KEY (`id`),
+#                                                                                                      UNIQUE KEY `from_email` (`from_email`),
+#                                                                                                                 KEY `from_contacts_idx_id` (`id`)
+# ) ENGINE=InnoDB AUTO_INCREMENT=145450 DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `message_body` (
+#     `id` int(11) NOT NULL AUTO_INCREMENT,
+#                           `body` mediumtext COLLATE utf8mb4_bin DEFAULT NULL,
+#                                                                         PRIMARY KEY (`id`),
+#                                                                                 KEY `message_body_idx_id` (`id`),
+#                                                                                     FULLTEXT KEY `body` (`body`)
+# ) ENGINE=InnoDB AUTO_INCREMENT=1211488 DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `message_ids` (
+#     `id` int(11) NOT NULL AUTO_INCREMENT,
+#                           `messageid` varchar(255) NOT NULL,
+#                                                        PRIMARY KEY (`id`),
+#                                                                UNIQUE KEY `messageid` (`messageid`),
+#                                                                           KEY `messageid-index` (`messageid`),
+#                                                                               KEY `message_ids_idx_id` (`id`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `message_newsgroup_ref` (
+#     `messageid` int(11) NOT NULL,
+#                             `newsgroup` int(11) NOT NULL,
+#                                                     UNIQUE KEY `messageid_newsgroup_from` (`messageid`,`newsgroup`),
+#                                                                KEY `messageid` (`messageid`),
+#                                                                    KEY `newsgroup` (`newsgroup`),
+#                                                                        KEY `message_newsgroup_re_idx_messageid` (`messageid`),
+#                                                                            CONSTRAINT `FK.messageid` FOREIGN KEY (`messageid`) REFERENCES `message_ids` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+#                                                                                                                                                                                            CONSTRAINT `FK.newsgroup` FOREIGN KEY (`newsgroup`) REFERENCES `newsgroup_ids` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `message_references` (
+#     `messageid` int(11) NOT NULL,
+#                             `reference` int(11) NOT NULL,
+#                                                     KEY `FK_message_references_message_ids_2` (`reference`),
+#                                                         KEY `messageid_reference` (`messageid`,`reference`),
+#                                                             KEY `message_references_idx_reference` (`reference`),
+#                                                                 KEY `message_references_idx_messageid` (`messageid`),
+#                                                                     CONSTRAINT `FK_message_references_message_ids` FOREIGN KEY (`messageid`) REFERENCES `message_ids` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+#                                                                                                                                                                                                          CONSTRAINT `FK_message_references_message_ids_2` FOREIGN KEY (`reference`) REFERENCES `message_ids` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# ua_scienceCREATE TABLE IF NOT EXISTS `message_subject_lines` (
+#     `id` int(11) NOT NULL AUTO_INCREMENT,
+#                           `subject` mediumtext NOT NULL,
+#                                                    PRIMARY KEY (`id`),
+#                                                            KEY `message_subject_line_idx_id` (`id`),
+#                                                                FULLTEXT KEY `subject` (`subject`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
+# CREATE TABLE IF NOT EXISTS `newsgroup_ids` (
+#     `id` int(11) NOT NULL AUTO_INCREMENT,
+#                           `newsgroupname` varchar(255) NOT NULL,
+#                                                            PRIMARY KEY (`id`),
+#                                                                    UNIQUE KEY `newsgroupname` (`newsgroupname`),
+#                                                                               KEY `newsgroupname-index` (`newsgroupname`),
+#                                                                                   KEY `newsgroup_ids_idx_id` (`id`)
+# ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+#
