@@ -1,40 +1,43 @@
-import encodings
-import ntpath
-import os
-import json
-import urllib
-from datetime import date
-from time import strftime
-import chardet
-import cchardet
-import dateutil.parser
+import email
 import glob
 import gzip
+import mailbox as mailbox
+import ntpath
+import os
+import quopri
 import random
 import re
 import shutil
-import mailbox as mailbox
 import string
-import unidecode
-import zlib
-import psycopg2
+import sys
+from datetime import date
+from email import policy
+
+import cchardet
+import dateutil.parser
+# START - CONFIGURATION
+from bs4 import UnicodeDammit
+
+import configuration_json
 
 # Wait random time 15-120 seconds before starting
 # sleep_time = random.randint(1, 120)
 # print("Waiting " + str(sleep_time) + " seconds before start!")
 # time.sleep(sleep_time)
 
-# START - CONFIGURATION
-from bs4 import UnicodeDammit
-from dateutil.tz import gettz
-
-import configuration_json
-
 where2unzip = ""
 print("Connecting PostgreSQL DB")
 
 today = date.today()
 print("Starting at:", today)
+
+
+def print_psycopg2_exception(err2):
+    # get details about the exception
+    err_type, err_obj, traceback = sys.exc_info()
+    # get the line number when exception occured
+    line_num = traceback.tb_lineno
+
 
 # db_cursor.execute('SET GLOBAL max_allowed_packet=67108864')
 # db_cursor.execute('SET GLOBAL max_connections = 500')
@@ -48,12 +51,12 @@ def convert_encoding(data, new_coding='UTF-8'):
         data = data.decode(encoding, data).encode(new_coding)
     return data
 
+
 group_name_fin = ""
 count_minutes = 0
-processing_message_counter = 0
 # path = r"C:\tmp"
-path = r"E:\GiganewsArchives\giganews\downloads\0.processing\to do"
-path = path.replace("\\", "/") + "/"
+
+path = configuration_json.path.replace("\\", "/") + "/"
 
 # END - CONFIGURATION
 
@@ -77,6 +80,7 @@ for f in files:
     current_position_in_db = 0
     last_message_count = 0
     is_file_being_processed = 0
+    processing_message_counter = 0
     group_name_fin = ""
     try:
         sql = f"SELECT * FROM all_messages.all_files WHERE file_name = '{filename}' LIMIT 1"
@@ -102,11 +106,13 @@ for f in files:
         except Exception:
             pass
 
-    if (file_name == "") or (current_position_in_db == 0 and last_message_count == 0 and is_file_being_processed == 0) or (current_position_in_db < last_message_count and is_file_being_processed == 0):
+    if (file_name == "") or (
+            current_position_in_db == 0 and last_message_count == 0 and is_file_being_processed == 0) or (
+            current_position_in_db < last_message_count and is_file_being_processed == 0):
         try:
             filename_extract = filename.replace(".mbox", "")
             group_name_fin = filename_extract.replace("." + filename_extract.split(".")[-1], "")
-            group_name_fin_db = group_name_fin.replace(".","_").replace("-", "_")
+            group_name_fin_db = group_name_fin.replace(".", "_").replace("-", "_").replace("+", "")
 
             sql = f"INSERT INTO all_messages.all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
             # sql = "INSERT INTO all_messages.all_files(file_name, current, total, processing, newsgroup_name) VALUES ('sci.homebrew.20140221.mbox', 0, 0 ,1,'sci.homebrew') ON CONFLICT (file_name) DO UPDATE SET processing=1"
@@ -117,18 +123,38 @@ for f in files:
 
             # Create tables for a new group
             db_cursor = configuration_json.db_connection.cursor()
-            db_cursor.execute(f"select exists(select * from information_schema.tables where table_name='{group_name_fin_db}_headers')")
+            db_cursor.execute(
+                f"select exists(select * from information_schema.tables where table_name='{group_name_fin_db}_headers')")
             exist = db_cursor.fetchone()[0]
             db_cursor.close()
 
             if not exist:
                 try:
-                    sql = f"create table all_messages.{group_name_fin_db}_headers(id bigserial not null constraint {group_name_fin_db}_headers_pk primary key, data jsonb, processed timestamp default CURRENT_TIMESTAMP);" \
-                          f"alter table all_messages.{group_name_fin_db}_headers owner to postgres; create unique index {group_name_fin_db}_headers_id_uindex on all_messages.{group_name_fin_db}_headers (id);" \
-                          f"create table all_messages.{group_name_fin_db}_body(id integer,data text);alter table all_messages.{group_name_fin_db}_body owner to postgres;"
+                    sql = f"create table all_messages.{group_name_fin_db}_headers(id bigserial not null constraint {group_name_fin_db}_headers_pk primary key, dateparsed timestamp, subj_id bigint, ref smallint, msg_id text, msg_from text, enc text, contype text, processed timestamp default CURRENT_TIMESTAMP);alter table all_messages.{group_name_fin_db}_headers owner to postgres;"
                     db_cursor = configuration_json.db_connection.cursor()
                     db_cursor.execute(sql)
-                    #configuration_json.db_connection.commit()
+                    configuration_json.db_connection.commit()
+                    db_cursor.close()
+
+                    sql = f"create table all_messages.{group_name_fin_db}_refs(id bigint, ref_msg text default null);alter table all_messages.{group_name_fin_db}_refs owner to postgres;"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    configuration_json.db_connection.commit()
+                    db_cursor.close()
+
+                    sql = f"create table all_messages.{group_name_fin_db}_body(id bigint primary key, data text default null);alter table all_messages.{group_name_fin_db}_body owner to postgres;"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    configuration_json.db_connection.commit()
+                    db_cursor.close()
+
+                    sql = f"create unique index {group_name_fin_db}_headers_id_uindex on all_messages.{group_name_fin_db}_headers(id);"
+
+                    #     f"create unique index {group_name_fin_db}_refs_id_uindex on all_messages.{group_name_fin_db}_refs(id);" \
+                    #     f"create unique index {group_name_fin_db}_body_id_uindex on all_messages.{group_name_fin_db}_body(id);"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    configuration_json.db_connection.commit()
                     db_cursor.close()
                 except Exception:
                     pass
@@ -157,28 +183,77 @@ for f in files:
         mbox = mailbox.mbox(where2unzip)
 
         print("**************************************")
-        # if count == 1: messages_per_minute()  # start minute long updates
 
+
+        def groupnum(number):
+            s = '%d' % number
+            groups = []
+            while s and s[-1].isdigit():
+                groups.append(s[-3:])
+                s = s[:-3]
+            return s + ','.join(reversed(groups))
+
+
+        def find_between(s, first, last):
+            try:
+                start = s.index(first) + len(first)
+                end = s.index(last, start)
+                return s[start:end]
+            except ValueError:
+                return ""
+
+
+        # Process every single mesage recovered from the MBOX file
         for message in mbox:
-
-            all_count = int(mbox._next_key)
             processing_message_counter = processing_message_counter + 1
 
+            # start only processing once you get to first unprocessed message
             if processing_message_counter > current_position_in_db:
+
+                try:
+                    message = email.message_from_string(str(message), policy=policy.default)
+                except Exception:
+                    pass
+
+                all_count = int(mbox._next_key)
 
                 if processing_message_counter % 1000 == 0:
                     percentage = round(100 * float(processing_message_counter) / float(all_count), 2)
 
                     # Show how many messsages we're processing per minute
-                    #sql_count = "SELECT COUNT(*) FROM all_messages.headers WHERE processed >= (now() - INTERVAL \'1 MINUTE\')"
+                    # sql_count = "SELECT COUNT(*) FROM all_messages.headers WHERE processed >= (now() - INTERVAL \'1 MINUTE\')"
                     # sql_count = "SELECT COUNT(*) FROM all_messages.headers"
                     sql = f"SELECT COUNT(*) FROM all_messages.{group_name_fin_db}_headers WHERE processed >= (now() - INTERVAL '1 MINUTE')"
                     db_cursor = configuration_json.db_connection.cursor()
                     db_cursor.execute(sql)
                     messages_per_minute1 = db_cursor.fetchone()[0]
                     db_cursor.close()
-                    #print('100')
-                    print(filename.replace(".mbox", "") + ": " + str(processing_message_counter) + " of " + str(all_count) + " (" + str(percentage) + "%) | " + str(messages_per_minute1) + " msgs/min (" + str(messages_per_minute1 * 60) + " hr, " + str(messages_per_minute1 * 60 * 24) + " day)")
+                    # print('100')
+
+                    # print(message_body)
+                    try:
+                        sql = f"INSERT INTO all_messages.all_updates(groupname,perminute) VALUES ((%s), (%s))"
+                        db_cursor = configuration_json.db_connection.cursor()
+                        db_cursor.execute(sql, (filename, messages_per_minute1))
+                        configuration_json.db_connection.commit()
+                        # sql_message_id = db_cursor.fetchone()[0]
+                        db_cursor.close()
+                    except Exception as err:
+                        print(err.pgerror)
+
+                    sql = f"select SUM(perminute) from all_messages.all_updates where id in (SELECT MAX(id) as t FROM all_messages.all_updates WHERE tstamp >= (now() - INTERVAL '1 MINUTE') group by groupname);"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    messages_per_minute1 = db_cursor.fetchone()[0]
+                    db_cursor.close()
+                    if not messages_per_minute1:
+                        messages_per_minute1 = 0
+                    print(filename.replace(".mbox", "") + ": " + str(processing_message_counter) + " of " + str(
+                        all_count) + " (" + str(percentage) + "%) | " + str(
+                        groupnum(messages_per_minute1)) + " msgs/min (" + str(
+                        groupnum(messages_per_minute1 * 60)) + " hr, " + str(
+                        groupnum(messages_per_minute1 * 60 * 24)) + " day, " + str(
+                        groupnum(messages_per_minute1 * 60 * 24 * 365)) + " year)")
 
                 # RESET ALL VARS
                 sql_body_id = None
@@ -189,224 +264,255 @@ for f in files:
                 date_time = None
                 message_id = None
                 subject_text = None
-                body_text = None
                 message_from_email = None
                 message_from_name = None
                 reply_to_email = None
                 reply_to_name = None
                 headers_in_json = None
                 message_body = None
-                # if message['Content-Transfer-Encoding']:
-                #     ContentTransferEncoding = message['Content-Transfer-Encoding']
-                #     # print(ContentTransferEncoding)
-                # if message['Content-Type']:
-                #     ContentType = re.findall(r'"([^"]*)"', message['Content-Type'])
-                #     # print(ContentType)
 
+                parsed_encoding = None
+                parsed_content_type = None
+                parsed_message_id = None
+                parsed_date = None
+                parsed_subject = None
+                parsed_ref = None
+                parsed_body_text = None
+                parsed_from = None
+                has_ref = 0
+
+                #############################################
+                # USENET HEADER PARSING
+                #############################################
+                # GET HEADERS IN ORIGINAL RAW FORMAT (NOT UTF-8)
+                # PARSE THE IMPORTANT PARTS FROM LIST OF HEADERS
+
+                for p in message._headers:
+                    name = str(p[0]).lower()
+
+                    # Parse Date
+                    if name == 'date':
+                        parsed_date = p[1].rstrip(os.linesep).replace("\n", "")
+
+                    # Parse Content Type 7/8bit - goes to JSON
+                    if name == 'content-type':
+                        parsed_content_type = str(p[1].rstrip(os.linesep).replace("\n", ""))
+
+                    # Parse content-transfer-encoding
+                    if name == 'content-transfer-encoding':
+                        parsed_content_type = str(p[1].rstrip(os.linesep).replace("\n", ""))
+
+                    # Parse References
+                    if name == 'references':
+                        parsed_ref = p[1].rstrip(os.linesep).replace("\n", "")
+
+                    # Parse Subject
+                    if name == 'subject':
+                        parsed_subject = p[1].rstrip(os.linesep).replace("\n", "")
+
+                    # Parse message-id
+                    if name == 'message-id':
+                        parsed_message_id = p[1].rstrip(os.linesep).replace("\n", "")
+
+                    # Parse From
+                    if name == 'from':
+                        parsed_from = p[1].rstrip(os.linesep).replace("\n", "")
+
+                    # Parse Charset Encoding  - goes to JSON
+                    if name == 'content-type':
+                        try:
+                            parsed_encoding = message.get_content_charset()
+                        except Exception:
+                            if "charset=" in name:
+                                try:
+                                    parsed_encoding = str(
+                                        re.findall(r'"([^"]*)"', str(p[1].rstrip(os.linesep).replace("\n", "")))[0])
+                                except Exception:
+                                    dammit = UnicodeDammit(p[1].rstrip(os.linesep).replace("\n", ""))
+                                    parsed_encoding = dammit.original_encoding
+                            else:
+                                dammit = UnicodeDammit(p[1].rstrip(os.linesep).replace("\n", ""))
+                                parsed_encoding = dammit.original_encoding
+
+                    #############################################
+                    # DATA CLEAN UP - message_references
+                    #############################################
                 try:
 
-                    # PARSE MOST IMPORTANT PARTS
-
-                    headers = message._headers
-                    new_headers = []
-                    for p in headers:
-                        name = p[0].rstrip(os.linesep).replace("\n", "").lower()
-                        value = p[1].rstrip(os.linesep).replace("\n", "")
-
-                        # Parse Date
-                        if name == 'date':
-                            new_headers.append(tuple(("orig-date", value)))
-                            try:
-                                value = dateutil.parser.parse(message['date'], tzinfos = {
-                                    'PST': dateutil.tz.gettz('US/Pacific'),
-                                    'PDT': dateutil.tz.gettz('US/Pacific'),
-                                    'PT': dateutil.tz.gettz('US/Pacific'),
-                                    'MST': dateutil.tz.gettz('US/Mountain'),
-                                    'MDT': dateutil.tz.gettz('US/Mountain'),
-                                    'MT': dateutil.tz.gettz('US/Mountain'),
-                                    'CST': dateutil.tz.gettz('US/Central'),
-                                    'CDT': dateutil.tz.gettz('US/Central'),
-                                    'CT': dateutil.tz.gettz('US/Central'),
-                                    'EST': dateutil.tz.gettz('US/Eastern'),
-                                    'EDT': dateutil.tz.gettz('US/Eastern'),
-                                    'ET': dateutil.tz.gettz('US/Eastern')})
-                                new_headers.append(tuple((name, str(value))))
-                            except Exception:
-                                try:
-                                    # Try to parse/convert NNTP-Posting-Date
-                                    value = dateutil.parser.parse(message['NNTP-Posting-Date'], tzinfos = {
-                                        'PST': dateutil.tz.gettz('US/Pacific'),
-                                        'PDT': dateutil.tz.gettz('US/Pacific'),
-                                        'PT': dateutil.tz.gettz('US/Pacific'),
-                                        'MST': dateutil.tz.gettz('US/Mountain'),
-                                        'MDT': dateutil.tz.gettz('US/Mountain'),
-                                        'MT': dateutil.tz.gettz('US/Mountain'),
-                                        'CST': dateutil.tz.gettz('US/Central'),
-                                        'CDT': dateutil.tz.gettz('US/Central'),
-                                        'CT': dateutil.tz.gettz('US/Central'),
-                                        'EST': dateutil.tz.gettz('US/Eastern'),
-                                        'EDT': dateutil.tz.gettz('US/Eastern'),
-                                        'ET': dateutil.tz.gettz('US/Eastern')})
-                                    new_headers.append(tuple((name, str(value))))
-                                except Exception:
-                                    new_headers.append(tuple((name, "")))
-                                pass
-
-                        # Parse reply-to
-                        if name == 'content-type':
-                            dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                            try:
-                                message_content = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_content = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-
-                            new_headers.append(tuple((name, message_content)))
-
-
-                        # Parse reply-to
-                        if name == 'content-transfer-encoding':
-                            dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                            try:
-                                message_encoding = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_encoding = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-
-                            new_headers.append(tuple((name, message_encoding)))
-
-                        # Parse References
-                        if name == 'references':
-                            dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                            try:
-                                message_references = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_references = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-                            new_headers.append(tuple((name, message_references)))
-
-                        # Parse Subject
-                        if name == 'subject':
-                            dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                            try:
-                                message_subject = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_subject = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-
-                            new_headers.append(tuple((name, message_subject)))
-                            #new_headers.append(tuple((name, unidecode.unidecode(re.sub(r"(=\?.*\?=)(?!$)", r"\1 ", value)).replace("'",""))))
-
-                        # Parse message-id
-                        if name == 'message-id':
-                            if value:
-                                dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                                new_headers.append(tuple((name, str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding))))
-                            else:
-                                made_up_message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-                                new_headers.append(tuple(("message-id", made_up_message_id)))
-
-                            # Parse newsgroups
-                        if name == 'newsgroups':
-                            dammit = UnicodeDammit(value.strip().replace(", ", ",").encode('utf-8', 'surrogatepass'))
-                            try:
-                                message_newsgroups = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_newsgroups = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-                            new_headers.append(tuple(("message-id", message_newsgroups)))
-                            #new_headers.append(tuple((name, unidecode.unidecode(re.sub(r"(=\?.*\?=)(?!$)", r"\1 ", message_newsgroups)).replace("'", "").replace(" ", "").replace("/", ""))))
-
-                            # Parse From
-                        if name == 'from':
-                            #encoding = encodings.get(str(value), estimate['encoding'])
-                            #estimate = chardet.detect(str(value))
-                            dammit = UnicodeDammit(str(value).encode('utf-8', 'surrogatepass'))
-                            #print(dammit.unicode_markup)
-                            #print(dammit.original_encoding)
-                            try:
-                                message_from = str(value).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                            except Exception:
-                                message_from = str(value).encode('utf-8', 'surrogatepass').decode("ANSI")
-                            new_headers.append(tuple(("from", message_from)))
-                            #new_headers.append(tuple(("from", unidecode.unidecode(re.sub(r"(=\?.*\?=)(?!$)", r"\1 ", message_from)).replace("'",""))))
-
-                            # try:
-                            #     message_from_name = message['from'][0][0]
-                            #     message_from_email = message['from'][0][1]
-                            #     new_headers.append(tuple(("orig-from", value)))
-                            #     new_headers.append(tuple(("name", message_from_name.strip())))
-                            #     new_headers.append(tuple(("email", message_from_email.strip())))
-                            # except Exception:
-                            #     try:
-                            #         message_from = str(message['from']).encode('utf-8', 'surrogatepass').decode('utf-8')
-                            #         match = re.search(r'[\w\.-]+@[\w\.-]+', message_from)
-                            #         message_from_email = match.group(0)
-                            #         message_from_name = str(message['from']).replace('"', "").replace('(', "").replace(
-                            #             ')', "").replace(message_from_email, "").replace("  ", "").replace("<",
-                            #                                                                                "").replace(
-                            #             ">", "")
-                            #         new_headers.append(tuple(("orig-from", value)))
-                            #         new_headers.append(tuple(("name", message_from_name.strip())))
-                            #         new_headers.append(tuple(("email", message_from_email.strip())))
-                            #     except Exception:
-                            #         message_from_name = str(message['from']).encode('utf-8', 'surrogatepass').decode(
-                            #             'utf-8').replace("<", "").replace(">", "").replace('(', "").replace(')',
-                            #                                                                                 "").replace(
-                            #             "  ", "")
-                            #         message_from_email = ""
-                            #         new_headers.append(tuple(("orig-from", value)))
-                            #         new_headers.append(tuple(("name", message_from_name.strip())))
-                            #         new_headers.append(tuple(("email", message_from_email.strip())))
-                        # new_headers = ('{} : {}'.format(name, value))
-
-                    headers_in_json = json.dumps(dict(new_headers))
-
+                    # GET BODY OF THE MESSAGE
                     try:
                         if message.is_multipart():
                             for part in message.walk():
                                 if part.is_multipart():
                                     for subpart in part.walk():
                                         if subpart.get_content_type() == 'text/plain':
-                                            body_text = subpart.get_payload(decode=True)
+                                            parsed_body_text = subpart.get_content()
                                 elif part.get_content_type() == 'text/plain':
-                                    body_text = part.get_payload(decode=True)
+                                    parsed_body_text = part.get_content()
                         elif message.get_content_type() == 'text/plain':
-                            body_text = message.get_payload(decode=True)
-                        # body_text = parsed_message._mail['body']
+                            parsed_body_text = message.get_content()
+                        # parsed_body_text = parsed_message._mail['body']
                     except Exception:
-                        dammit = UnicodeDammit(str(body_text).encode('utf-8', 'surrogatepass'))
-                        body_text = str(body_text).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
+                        # dammit = UnicodeDammit(str(parsed_body_text).encode('utf-8', 'surrogatepass'))
+                        # parsed_body_text = str(parsed_body_text).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
+                        try:
+                            if message.is_multipart():
+                                for part in message.walk():
+                                    if part.is_multipart():
+                                        for subpart in part.walk():
+                                            if subpart.get_content_type() == 'text/plain':
+                                                parsed_body_text = subpart.get_payload(decode=True)
+                                    elif part.get_content_type() == 'text/plain':
+                                        parsed_body_text = str(part.get_payload(decode=True))
+                            elif message.get_content_type() == 'text/plain':
+                                parsed_body_text1 = message.get_payload(decode=True)
+                                parsed_body_text = message.get_payload(decode=False)
+                                #parsed_body_text = str(message.get_payload(decode=True)).encode('utf-8', 'surrogatepass')
+                                dammit = UnicodeDammit(parsed_body_text1)
+                                parsed_encoding = dammit.original_encoding
+                                # body_text = parsed_message._mail['body']
+                        except Exception:
+                            pass
 
-                    #message_body = json.dumps(body_text)
-                    dammit = UnicodeDammit(str(body_text).encode('utf-8', 'surrogatepass'))
-                    message_body = str(body_text).encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
-                    #compressed_message_body = zlib.compress(message_body.encode('utf-8'))
-                    #decompressed = zlib.decompress(compressed_message_body)
-                    #decompressed_message_body = zlib.decompress(compressed_message_body)
-                    #############################################
-                    # Insert Message ID into message_ids table
-                    #############################################
+                    # DATA CLEAN UP - MESSAGE BODY
+                    # try:
+                    #     if parsed_encoding:
+                    #         parsed_body_text = parsed_body_text.encode('utf-8', 'surrogatepass').decode(parsed_encoding)
+                    #     else:
+                    #         dammit_body = UnicodeDammit(str(parsed_body_text).encode('utf-8', 'surrogatepass'))
+                    #         parsed_body_text = str(parsed_body_text).encode('utf-8', 'surrogatepass').decode(
+                    #             dammit_body.original_encoding)
+                    # except Exception:
+                    #     dammit_body = UnicodeDammit(str(parsed_body_text).encode('utf-8', 'surrogatepass'))
+                    #     parsed_body_text = str(parsed_body_text).encode('utf-8', 'surrogatepass').decode("ANSI")
 
-                    #print(headers_in_json)
+                    # DATA CLEAN UP - DATE
                     try:
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(data) VALUES ((%s)) RETURNING id"
-                        db_cursor = configuration_json.db_connection.cursor()
-                        db_cursor.execute(sql, (headers_in_json,))
-                        configuration_json.db_connection.commit()
-                        sql_message_id = db_cursor.fetchone()[0]
-                        db_cursor.close()
-                    except Exception as err:
-                        print(err.pgerror)
+                        parsed_date = dateutil.parser.parse(message['date'], tzinfos=configuration_json.timezone_info)
+                    except Exception:
+                        try:
+                            # Try to parse/convert NNTP-Posting-Date
+                            value = dateutil.parser.parse(message['NNTP-Posting-Date'],
+                                                          tzinfos=configuration_json.timezone_info)
+                            parsed_date = value
+                            # new_headers.append(tuple((name, str(value))))
+                        except Exception:
+                            # new_headers.append(tuple(("odate", value)))
+                            pass
 
-                    #print(message_body)
+                    # DATA CLEAN UP - message_encoding
+                    if parsed_encoding:
+                        try:
+                            parsed_encoding = parsed_encoding.encode('utf-8', 'surrogatepass').decode(parsed_encoding)
+                        except Exception:
+                            dammit = UnicodeDammit(parsed_encoding)
+                            parsed_encoding = str(p[1].rstrip(os.linesep).replace("\n", "")).encode('utf-8', 'surrogatepass').decode(
+                                dammit.original_encoding)
+                    else:
+                        parsed_encoding = "ANSI"
+
+                    if parsed_ref:
+                        try:
+                            parsed_ref = parsed_ref.encode('utf-8', 'surrogatepass').decode(parsed_encoding)
+                        except Exception:
+                            dammit = UnicodeDammit(parsed_ref.encode('utf-8', 'surrogatepass'))
+                            parsed_ref = parsed_ref.encode('utf-8', 'surrogatepass').decode(dammit.original_encoding)
+
+
+                    # DATA CLEAN UP - message_id
+                    if parsed_message_id:
+                        parsed_message_id = parsed_message_id.encode('utf-8', 'surrogatepass').decode(parsed_encoding)
+                    else:
+                        parsed_message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+
+                    # DATA CLEAN UP - message_subject
                     try:
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
-                        db_cursor = configuration_json.db_connection.cursor()
-                        db_cursor.execute(sql, (sql_message_id, message_body))
-                        configuration_json.db_connection.commit()
-                        # sql_message_id = db_cursor.fetchone()[0]
-                        db_cursor.close()
-                    except Exception as err:
-                        print(err.pgerror)
+                        #parsed_subject = parsed_subject.encode(parsed_encoding, 'surrogatepass').decode('utf-8')
+                        parsed_subject = quopri.decodestring(parsed_subject).decode(parsed_encoding)
+                        if '?q?' in parsed_subject:
+                            parsed_subject = find_between(parsed_subject, 'q?', '?').replace("_", " ")
+                        elif '?Q?' in parsed_subject:
+                            parsed_subject = find_between(parsed_subject, 'Q?', '?').replace("_", " ")
+                            # print(parsed_from)
+                    except Exception:
+                        if parsed_subject:
+                            dammit = UnicodeDammit(parsed_subject)
+                            parsed_subject = parsed_subject.encode(dammit.original_encoding, 'surrogatepass').decode('utf-8')
+                        else:
+                            parsed_subject = ""
+
+
+                    # DATA CLEAN UP - message_from
+                    try:
+                        parsed_from = quopri.decodestring(parsed_from).decode(parsed_encoding)
+                        if '?q?' in parsed_from:
+                            parsed_from = find_between(parsed_from, 'q?', '?').replace("_", " ")
+                        if '?Q?' in parsed_subject:
+                            parsed_subject = find_between(parsed_subject, 'Q?', '?').replace("_", " ")
+                        # print(parsed_from)
+                    except Exception:
+                        pass
+                    #############################################
+                    # Add everything that goes into JSONB headers table, into new list
+                    #############################################
+                    # new_headers.append(tuple(("enc", parsed_encoding)))
+                    # new_headers.append(tuple(("tenc", parsed_encoding)))
+                    # new_headers.append(tuple(("from", parsed_from)))
+                    # Add it in JSON format
+                    # headers_in_json = json.dumps(dict(new_headers)) # print(headers_in_json)
+
+                    #############################################
+                    # Add compression if needed
+                    #############################################
+                    # compressed_message_body = zlib.compress(message_body.encode('utf-8'))
+                    # decompressed = zlib.decompress(compressed_message_body)
+                    # decompressed_message_body = zlib.decompress(compressed_message_body)
+
+                    #############################################
+                    # ADD MESSAGE DETAILS INTO POSTGRES
+                    #############################################
+                    # Add a unique subject line
+                    sql = f"INSERT INTO all_messages.all_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql, (parsed_subject, parsed_subject))
+                    configuration_json.db_connection.commit()
+                    inserted_subject_id = db_cursor.fetchone()[0]
+                    db_cursor.close()
+
+                    # Add a header info - pass in the subject line id from the previous statement
+
+                    if parsed_ref:
+                        has_ref = 1
+                    else:
+                        has_ref = 0
+
+                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql, (
+                        parsed_date, inserted_subject_id, has_ref, parsed_message_id, parsed_from, parsed_encoding,
+                        parsed_content_type))
+                    configuration_json.db_connection.commit()
+                    inserted_header_id = db_cursor.fetchone()[0]
+                    db_cursor.close()
+
+                    if parsed_ref:
+                        split_refs = parsed_ref.split(' ')
+                        for split in split_refs:
+                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
+                            db_cursor = configuration_json.db_connection.cursor()
+                            db_cursor.execute(sql, (inserted_header_id, split.strip()))
+                            configuration_json.db_connection.commit()
+                            db_cursor.close()
+
+                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
+                    db_cursor = configuration_json.db_connection.cursor()
+                    db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
+                    configuration_json.db_connection.commit()
+                    # sql_message_id = db_cursor.fetchone()[0]
+                    db_cursor.close()
 
                     all_count = int(mbox._next_key)
-                    #group_name_fin = file_name
+                    # group_name_fin = file_name
                     sql = f"INSERT INTO all_messages.all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
                     db_cursor = configuration_json.db_connection.cursor()
                     db_cursor.execute(sql)
@@ -423,37 +529,30 @@ for f in files:
                         # sql_message_id = db_cursor.fetchone()[0]
                         db_cursor.close()
 
-                except Exception as inst:
+                except Exception as err:
+                    print_psycopg2_exception(err)
                     print(processing_message_counter + "- " + headers_in_json)
                     print(processing_message_counter + "- " + message_body)
                     print("-------------------")
-                    print(Exception)
-                    #pass
-            #
-            # if "Duplicate entry" not in str(inst.args[1]):
-            #     print("Error in message #" + str(processing_message_counter) + ": " + str(inst) + " | " + message_from)
-            # else:
-            #     pass
-            #     # print("Error in message #" + str(processing_message_counter) + ": " + str(inst) + " | " + message_from)
-
-        # if processing_message_counter == 20: exit(0)
 
         # remove temp file
 if os.path.exists(where2unzip):
-    #f_in.close()
-    #f_out.close()
     mbox.unlock()
     mbox.close()
+
     try:
         os.remove(where2unzip)
         print("** TEMP file removed: " + where2unzip)
     except Exception:
-        pass
+        print(Exception)
 
     try:
+        f.close()
         shutil.move(f, configuration_json.processed_path + '\\' + filename + '.gz')
-        print('Moving File to ' +configuration_json.processed_path + '\\' +filename + '.gz')
+        print('Moving File to ' + configuration_json.processed_path + filename + '.gz')
     except Exception:
-        pass
+        print(Exception)
+
+
 else:
     print("The file does not exist: " + where2unzip)
