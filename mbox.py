@@ -162,6 +162,7 @@ for f in files:
                     db_cursor.close()
 
                     sql = f"create unique index {group_name_fin_db}_headers_id_uindex on all_messages.{group_name_fin_db}_headers(id);" \
+                          f"create unique index {group_name_fin_db}_headers_id_umsgid on all_messages.{group_name_fin_db}_headers(msg_id);" \
                           f"create unique index {group_name_fin_db}_body_id_uindex on all_messages.{group_name_fin_db}_body(id);" \
                           f"create unique index {group_name_fin_db}_from_id_uindex on all_messages.{group_name_fin_db}_from(data);" \
                           f"create unique index {group_name_fin_db}_subjects_id_uindex on all_messages.{group_name_fin_db}_subjects(subject);"
@@ -348,6 +349,7 @@ for f in files:
                 parsed_from_original = None
                 has_ref = 0
 
+
                 #############################################
                 # USENET HEADER PARSING
                 #############################################
@@ -474,20 +476,25 @@ for f in files:
                 except Exception:
                     pass
 
+                failing_zones_to_check = ['-13', '-14', '-15', '-16', '-17', '-18', '-19', '-20', '-21', '-22', '-23', '-24', '+15', '+16', '+17', '+18', '+19', '+20', '+21', '+22', '+23', '+24']
                 try:
-                    if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19' not in parsed_date) and ('-19' not in parsed_date):
-                        parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
+                    for failedzone in failing_zones_to_check:
+                        if failedzone in parsed_date:
+                            parsed_date = parsed_date.split(failedzone)[0]
+                            print('Fixed: ' + parsed_date + ' | ' + failedzone)
+                            break
                     else:
-                        parsed_date = parsed_date.split('+')[0]
                         parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
                 except Exception:
                     try:
                         # Try to parse/convert NNTP-Posting-Date
                         parsed_date = message['NNTP-Posting-Date']
-                        if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19' not in parsed_date) and ('-19' not in parsed_date):
-                            parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
+                        for failedzone in failing_zones_to_check:
+                            if failedzone in parsed_date:
+                                parsed_date = parsed_date.split(failedzone)[0]
+                                print ('Fixed NNTP: ' + parsed_date + ' | ' + failedzone)
+                                break
                         else:
-                            parsed_date = parsed_date.split('+')[0]
                             parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
                     except Exception:
                         # new_headers.append(tuple(("odate", value)))
@@ -587,14 +594,17 @@ for f in files:
                     else:
                         has_ref = 0
 
-                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
-                    db_cursor = configuration.db_connection.cursor()
-                    db_cursor.execute(sql, (
-                        parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id, parsed_encoding,
-                        parsed_content_type))
-                    configuration.db_connection.commit()
-                    inserted_header_id = db_cursor.fetchone()[0]
-                    db_cursor.close()
+                    try:
+                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
+                        db_cursor = configuration.db_connection.cursor()
+                        db_cursor.execute(sql, (
+                            parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id, parsed_encoding,
+                            parsed_content_type))
+                        configuration.db_connection.commit()
+                        inserted_header_id = db_cursor.fetchone()[0]
+                        db_cursor.close()
+                    except Exception:
+                        continue
 
                     if parsed_ref:
                         split_refs = parsed_ref.split(' ')
