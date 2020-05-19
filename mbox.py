@@ -321,6 +321,12 @@ for f in files:
                     except Exception as err:
                         print(err.pgerror)
 
+                    # Delete all execept last 100 most recent update messages
+                    sql = f"DELETE FROM all_messages.\"00_all_updates\" WHERE id <= (SELECT id FROM (SELECT id FROM all_messages.\"00_all_updates\" ORDER BY id DESC LIMIT 1 OFFSET 100) foo);"
+                    db_cursor = configuration.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    db_cursor.close()
+
                     sql = f"select SUM(perminute) from all_messages.\"00_all_updates\" where id in (SELECT MAX(id) as t FROM all_messages.\"00_all_updates\" WHERE tstamp >= (now() - INTERVAL '1 MINUTE') group by groupname);"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
@@ -531,21 +537,22 @@ for f in files:
                 #############################################
                 # ADD MESSAGE DETAILS INTO POSTGRES
                 #############################################
+                inserted_subject_id = None
+                inserted_from_id = None
+                inserted_header_id = None
 
-                try:
+                # Check If MSG ID already in db
+                db_cursor = configuration.db_connection.cursor()
+                query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}')"
+                db_cursor.execute(query)
+                msg_exist = db_cursor.fetchone()[0]
+                db_cursor.close()
 
+                # Continue only if MSG not in the headers db
+                if not msg_exist:
                     try:
-                        # Add a unique subject line
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (parsed_subject, parsed_subject))
-                        configuration.db_connection.commit()
-                        inserted_subject_id = db_cursor.fetchone()[0]
-                        db_cursor.close()
-                    except Exception:
                         try:
-                            parsed_subject = parsed_subject.encode("ascii", "ignore").decode()
-                            parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject)
+                            # Add a unique subject line
                             sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
                             db_cursor = configuration.db_connection.cursor()
                             db_cursor.execute(sql, (parsed_subject, parsed_subject))
@@ -553,26 +560,27 @@ for f in files:
                             inserted_subject_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
-                            db_cursor = configuration.db_connection.cursor()
-                            db_cursor.execute(sql, (parsed_subject, parsed_subject))
-                            configuration.db_connection.commit()
-                            inserted_subject_id = db_cursor.fetchone()[0]
-                            db_cursor.close()
+                            if inserted_subject_id is None:
+                                try:
+                                    parsed_subject = parsed_subject.encode("ascii", "ignore").decode()
+                                    parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (parsed_subject, parsed_subject))
+                                    configuration.db_connection.commit()
+                                    inserted_subject_id = db_cursor.fetchone()[0]
+                                    db_cursor.close()
+                                except Exception:
+                                    parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (parsed_subject, parsed_subject))
+                                    configuration.db_connection.commit()
+                                    inserted_subject_id = db_cursor.fetchone()[0]
+                                    db_cursor.close()
 
-                    try:
-                        # Add a unique from line
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (parsed_from, parsed_from))
-                        configuration.db_connection.commit()
-                        inserted_from_id = db_cursor.fetchone()[0]
-                        db_cursor.close()
-                    except Exception:
                         try:
-                            parsed_from = parsed_from.encode("ascii", "ignore").decode()
-                            parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from)
+                            # Add a unique from line
                             sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
                             db_cursor = configuration.db_connection.cursor()
                             db_cursor.execute(sql, (parsed_from, parsed_from))
@@ -580,62 +588,64 @@ for f in files:
                             inserted_from_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from_original)
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
-                            db_cursor = configuration.db_connection.cursor()
-                            db_cursor.execute(sql, (parsed_from, parsed_from))
-                            configuration.db_connection.commit()
-                            inserted_from_id = db_cursor.fetchone()[0]
-                            db_cursor.close()
-                    # Add a header info - pass in the subject line id from the previous statement
+                            if inserted_from_id is None:
+                                try:
+                                    parsed_from = parsed_from.encode("ascii", "ignore").decode()
+                                    parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (parsed_from, parsed_from))
+                                    configuration.db_connection.commit()
+                                    inserted_from_id = db_cursor.fetchone()[0]
+                                    db_cursor.close()
+                                except Exception:
+                                    parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from_original)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (parsed_from, parsed_from))
+                                    configuration.db_connection.commit()
+                                    inserted_from_id = db_cursor.fetchone()[0]
+                                    db_cursor.close()
+                        # Add a header info - pass in the subject line id from the previous statement
 
-                    if parsed_ref:
-                        has_ref = 1
-                    else:
-                        has_ref = 0
+                        if parsed_ref:
+                            has_ref = 1
+                        else:
+                            has_ref = 0
 
-                    try:
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (
-                            parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id, parsed_encoding,
-                            parsed_content_type))
-                        configuration.db_connection.commit()
-                        inserted_header_id = db_cursor.fetchone()[0]
-                        db_cursor.close()
-                    except Exception:
-                        print('Duplicate MSG ID: ' + parsed_message_id)
-                        continue
-
-                    if parsed_ref:
-                        split_refs = parsed_ref.split(' ')
-                        for split in split_refs:
-                            try:
-                                sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
-                                db_cursor = configuration.db_connection.cursor()
-                                db_cursor.execute(sql, (inserted_header_id, split.strip()))
-                                configuration.db_connection.commit()
-                                db_cursor.close()
-                            except Exception:
-                                pass
-                    try:
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
-                        configuration.db_connection.commit()
-                        db_cursor.close()
-                    except Exception:
                         try:
-                            parsed_body_text = parsed_body_text.encode("ascii", "ignore").decode()
-                            parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
+                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
+                            db_cursor = configuration.db_connection.cursor()
+                            db_cursor.execute(sql, (
+                                parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id, parsed_encoding,
+                                parsed_content_type))
+                            configuration.db_connection.commit()
+                            inserted_header_id = db_cursor.fetchone()[0]
+                            db_cursor.close()
+                        except Exception:
+                            print('Duplicate MSG ID: ' + parsed_message_id)
+                            continue
+
+                        if parsed_ref:
+                            split_refs = parsed_ref.split(' ')
+                            for split in split_refs:
+                                try:
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (inserted_header_id, split.strip()))
+                                    configuration.db_connection.commit()
+                                    db_cursor.close()
+                                except Exception:
+                                    pass
+                        try:
                             sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
                             db_cursor = configuration.db_connection.cursor()
                             db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
                             configuration.db_connection.commit()
                             db_cursor.close()
                         except Exception:
-                            #parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
                             try:
+                                parsed_body_text = parsed_body_text.encode("ascii", "ignore").decode()
                                 parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
                                 sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
                                 db_cursor = configuration.db_connection.cursor()
@@ -643,28 +653,37 @@ for f in files:
                                 configuration.db_connection.commit()
                                 db_cursor.close()
                             except Exception:
-                                continue
+                                #parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
+                                try:
+                                    parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
+                                    db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
+                                    configuration.db_connection.commit()
+                                    db_cursor.close()
+                                except Exception:
+                                    continue
+                    except Exception as err:
+                        print_psycopg2_exception(err)
+                        print(processing_message_counter + "- " + str(err))
+                        print("-------------------")
 
-                    all_count = int(mbox._next_key)
-                    # group_name_fin = file_name
-                    sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
+
+                all_count = int(mbox._next_key)
+                # group_name_fin = file_name
+                sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
+                db_cursor = configuration.db_connection.cursor()
+                db_cursor.execute(sql)
+                configuration.db_connection.commit()
+                db_cursor.close()
+
+                # update DB - marked file as not being processed anymore
+                if processing_message_counter == all_count:
+                    sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
                     db_cursor.close()
-
-                    # update DB - marked file as not being processed anymore
-                    if processing_message_counter == all_count:
-                        sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql)
-                        configuration.db_connection.commit()
-                        db_cursor.close()
-
-                except Exception as err:
-                    print_psycopg2_exception(err)
-                    print(processing_message_counter + "- " + str(err))
-                    print("-------------------")
 
         # remove temp file
 if os.path.exists(where2unzip):
