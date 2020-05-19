@@ -11,6 +11,7 @@ import re
 import shutil
 import string
 import sys
+import time
 from datetime import date
 from email import policy
 
@@ -541,14 +542,29 @@ for f in files:
                 inserted_from_id = None
                 inserted_header_id = None
 
-                # Check If MSG ID already in db
-                db_cursor = configuration.db_connection.cursor()
-                query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}')"
-                db_cursor.execute(query)
-                msg_exist = db_cursor.fetchone()[0]
-                db_cursor.close()
+                try:
+                    # Check If MSG ID already in db
+                    db_cursor = configuration.db_connection.cursor()
+                    query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='" + parsed_message_id + "')"
+                    db_cursor.execute(query)
+                    msg_exist = db_cursor.fetchone()[0]
+                    db_cursor.close()
+                except Exception:
+                    time.sleep(1)
+                    try:
+                        # Check If MSG ID already in db
+                        db_cursor = configuration.db_connection.cursor()
+                        query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}')"
+                        db_cursor.execute(query)
+                        msg_exist = db_cursor.fetchone()[0]
+                        db_cursor.close()
+                    except Exception:
+                        print("Passing: " + parsed_message_id)
+                        msg_exist = False
+                    pass
 
-                # Continue only if MSG not in the headers db
+
+            # Continue only if MSG not in the headers db
                 if not msg_exist:
                     try:
                         try:
