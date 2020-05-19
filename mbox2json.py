@@ -177,7 +177,7 @@ for f in files:
 
         count = count + 1
         # Set initial path for where to unzip MBOX files
-        where2unzip = r'C:/tmp/' + filename
+        where2unzip = configuration_json.path2unzip + filename
 
         try:
             f = open(where2unzip)
@@ -599,12 +599,14 @@ for f in files:
                     if parsed_ref:
                         split_refs = parsed_ref.split(' ')
                         for split in split_refs:
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
-                            db_cursor = configuration_json.db_connection.cursor()
-                            db_cursor.execute(sql, (inserted_header_id, split.strip()))
-                            configuration_json.db_connection.commit()
-                            db_cursor.close()
-
+                            try:
+                                sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
+                                db_cursor = configuration_json.db_connection.cursor()
+                                db_cursor.execute(sql, (inserted_header_id, split.strip()))
+                                configuration_json.db_connection.commit()
+                                db_cursor.close()
+                            except Exception:
+                                pass
                     try:
                         sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
                         db_cursor = configuration_json.db_connection.cursor()
@@ -621,12 +623,16 @@ for f in files:
                             configuration_json.db_connection.commit()
                             db_cursor.close()
                         except Exception:
-                            parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
-                            db_cursor = configuration_json.db_connection.cursor()
-                            db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
-                            configuration_json.db_connection.commit()
-                            db_cursor.close()
+                            #parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
+                            try:
+                                parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
+                                sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
+                                db_cursor = configuration_json.db_connection.cursor()
+                                db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
+                                configuration_json.db_connection.commit()
+                                db_cursor.close()
+                            except Exception:
+                                continue
 
                     all_count = int(mbox._next_key)
                     # group_name_fin = file_name
@@ -662,7 +668,7 @@ if os.path.exists(where2unzip):
 
     try:
         f.close()
-        shutil.move(f, configuration_json.processed_path + '\\' + filename + '.gz')
+        shutil.move(f, configuration_json.processed_path + '/' + filename + '.gz')
         print('Moving File to ' + configuration_json.processed_path + filename + '.gz')
     except Exception:
         print(Exception)
