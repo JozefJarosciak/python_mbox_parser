@@ -475,7 +475,7 @@ for f in files:
                     pass
 
                 try:
-                    if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19:30' not in parsed_date) and ('-19:30' not in parsed_date):
+                    if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19' not in parsed_date) and ('-19' not in parsed_date):
                         parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
                     else:
                         parsed_date = parsed_date.split('+')[0]
@@ -484,7 +484,7 @@ for f in files:
                     try:
                         # Try to parse/convert NNTP-Posting-Date
                         parsed_date = message['NNTP-Posting-Date']
-                        if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19:30' not in parsed_date) and ('-19:30' not in parsed_date):
+                        if ('-21' not in parsed_date) and ('+21' not in parsed_date) and ('-021' not in parsed_date) and ('+021' not in parsed_date) and ('+19' not in parsed_date) and ('-19' not in parsed_date):
                             parsed_date = dateutil.parser.parse(parsed_date, tzinfos=configuration.timezone_info)
                         else:
                             parsed_date = parsed_date.split('+')[0]
