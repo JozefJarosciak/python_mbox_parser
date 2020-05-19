@@ -604,6 +604,7 @@ for f in files:
                         inserted_header_id = db_cursor.fetchone()[0]
                         db_cursor.close()
                     except Exception:
+                        print('Duplicate MSG ID: ' + parsed_message_id)
                         continue
 
                     if parsed_ref:
