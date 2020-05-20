@@ -576,6 +576,7 @@ for f in files:
                             inserted_subject_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
+                            print("Bad Subject: " + parsed_subject);
                             if inserted_subject_id is None:
                                 try:
                                     parsed_subject = parsed_subject.encode("ascii", "ignore").decode()
@@ -587,13 +588,17 @@ for f in files:
                                     inserted_subject_id = db_cursor.fetchone()[0]
                                     db_cursor.close()
                                 except Exception:
-                                    parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
-                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
-                                    db_cursor = configuration.db_connection.cursor()
-                                    db_cursor.execute(sql, (parsed_subject, parsed_subject))
-                                    configuration.db_connection.commit()
-                                    inserted_subject_id = db_cursor.fetchone()[0]
-                                    db_cursor.close()
+                                    try:
+                                        parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
+                                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                                        db_cursor = configuration.db_connection.cursor()
+                                        db_cursor.execute(sql, (parsed_subject, parsed_subject))
+                                        configuration.db_connection.commit()
+                                        inserted_subject_id = db_cursor.fetchone()[0]
+                                        db_cursor.close()
+                                    except Exception:
+                                        pass
+
 
                         try:
                             # Add a unique from line
@@ -681,7 +686,7 @@ for f in files:
                                     continue
                     except Exception as err:
                         print_psycopg2_exception(err)
-                        print(processing_message_counter + "- " + str(err))
+                        print(str(processing_message_counter) + " - " + str(err))
                         print("-------------------")
 
 
