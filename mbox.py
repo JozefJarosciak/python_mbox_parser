@@ -521,6 +521,7 @@ for f in files:
                 # DATA CLEAN UP - message_id
                 if parsed_message_id:
                     parsed_message_id = clean_string(parsed_message_id, parsed_encoding)
+                    parsed_message_id = parsed_message_id.replace("'", "")
                 else:
                     parsed_message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
