@@ -577,7 +577,7 @@ for f in files:
                             inserted_subject_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            print("Bad Subject: " + parsed_subject);
+                            #print("Bad Subject: " + parsed_subject);
                             if inserted_subject_id is None:
                                 try:
                                     parsed_subject = parsed_subject.encode("ascii", "ignore").decode()
