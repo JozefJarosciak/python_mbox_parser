@@ -685,6 +685,13 @@ for f in files:
                                     db_cursor.close()
                                 except Exception:
                                     continue
+
+                                            # group_name_fin = file_name
+                        sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
+                        db_cursor = configuration.db_connection.cursor()
+                        db_cursor.execute(sql)
+                        configuration.db_connection.commit()
+                        db_cursor.close()
                     except Exception as err:
                         print_psycopg2_exception(err)
                         print(str(processing_message_counter) + " - " + str(err))
@@ -692,12 +699,7 @@ for f in files:
 
 
                 all_count = int(mbox._next_key)
-                # group_name_fin = file_name
-                sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
-                db_cursor = configuration.db_connection.cursor()
-                db_cursor.execute(sql)
-                configuration.db_connection.commit()
-                db_cursor.close()
+
 
                 # update DB - marked file as not being processed anymore
                 if processing_message_counter == all_count:
