@@ -551,7 +551,7 @@ for f in files:
                     msg_exist = db_cursor.fetchone()[0]
                     db_cursor.close()
                 except Exception:
-                    time.sleep(1)
+                    #time.sleep(1)
                     try:
                         # Check If MSG ID already in db
                         db_cursor = configuration.db_connection.cursor()
@@ -693,6 +693,8 @@ for f in files:
                         configuration.db_connection.commit()
                         db_cursor.close()
                     except Exception as err:
+                        print(sql)
+
                         print_psycopg2_exception(err)
                         print(str(processing_message_counter) + " - " + str(err))
                         print("-------------------")
