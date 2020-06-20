@@ -217,6 +217,7 @@ for f in files:
             except ValueError:
                 return ""
 
+        def removeNonAscii(s): return "".join(i for i in s if ord(i)<126 and ord(i)>31)
 
         def clean_string(header_part, encoding):
             orig_header_part = header_part
@@ -522,6 +523,7 @@ for f in files:
                 if parsed_message_id:
                     parsed_message_id = clean_string(parsed_message_id, parsed_encoding)
                     parsed_message_id = parsed_message_id.replace("'", "")
+                    parsed_message_id = parsed_message_id.replace(" ", "").replace('\n', ' ').replace('\r', '')
                 else:
                     parsed_message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
@@ -546,7 +548,8 @@ for f in files:
                 try:
                     # Check If MSG ID already in db
                     db_cursor = configuration.db_connection.cursor()
-                    query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='" + parsed_message_id + "')"
+                    parsed_message_id = removeNonAscii(parsed_message_id)
+                    query = f"select exists (select * from all_messages.{group_name_fin_db}_headers where msg_id=\'" + parsed_message_id + "\');"
                     db_cursor.execute(query)
                     msg_exist = db_cursor.fetchone()[0]
                     db_cursor.close()
@@ -555,7 +558,8 @@ for f in files:
                     try:
                         # Check If MSG ID already in db
                         db_cursor = configuration.db_connection.cursor()
-                        query = f"Select exists (select from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}')"
+
+                        query = f"select exists (select * from all_messages.{group_name_fin_db}_headers where msg_id=\'{parsed_message_id}\')"
                         db_cursor.execute(query)
                         msg_exist = db_cursor.fetchone()[0]
                         db_cursor.close()
@@ -686,12 +690,7 @@ for f in files:
                                 except Exception:
                                     continue
 
-                                            # group_name_fin = file_name
-                        sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
-                        db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql)
-                        configuration.db_connection.commit()
-                        db_cursor.close()
+
                     except Exception as err:
                         print(sql)
 
@@ -701,11 +700,16 @@ for f in files:
 
 
                 all_count = int(mbox._next_key)
-
-
+                # group_name_fin = file_name
                 # update DB - marked file as not being processed anymore
                 if processing_message_counter == all_count:
                     sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
+                    db_cursor = configuration.db_connection.cursor()
+                    db_cursor.execute(sql)
+                    configuration.db_connection.commit()
+                    db_cursor.close()
+                else:
+                    sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
