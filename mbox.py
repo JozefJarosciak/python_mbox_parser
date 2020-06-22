@@ -693,7 +693,7 @@ for f in files:
 
                     except Exception as err:
                         print(sql)
-
+                        print(parsed_from)
                         print_psycopg2_exception(err)
                         print(str(processing_message_counter) + " - " + str(err))
                         print("-------------------")
