@@ -692,18 +692,20 @@ for f in files:
 
 
                     except Exception as err:
-                        print(sql)
-                        print(parsed_message_id)
-                        print(parsed_date)
-                        print(parsed_from)
-                        print(parsed_subject)
-                        print(parsed_ref)
-                        print(parsed_encoding)
-                        print(parsed_content_type)
-                        print(parsed_body_text)
+                        print("------------------------")
+                        print("-*-" + sql + "-*-")
+                        print("-*-" + parsed_message_id + "-*-")
+                        print("-*-" + parsed_date + "-*-")
+                        print("-*-" + parsed_from + "-*-")
+                        print("-*-" + parsed_subject + "-*-")
+                        print("-*-" + parsed_ref + "-*-")
+                        print("-*-" + parsed_encoding + "-*-")
+                        print("-*-" + parsed_content_type + "-*-")
+                        print("-*-" + parsed_body_text + "-*-")
+                        print("------------------------")
                         print_psycopg2_exception(err)
                         print(str(processing_message_counter) + " - " + str(err))
-                        print("-------------------")
+                        print("------------------------")
 
 
                 all_count = int(mbox._next_key)
