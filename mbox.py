@@ -85,7 +85,7 @@ for f in files:
     processing_message_counter = 0
     group_name_fin = ""
     try:
-        sql = f"SELECT * FROM all_messages.\"00_all_files\" WHERE file_name = '{filename}' LIMIT 1"
+        sql = f"SELECT * FROM all_messages.__all_files WHERE file_name = '{filename}' LIMIT 1"
         db_cursor = configuration.db_connection.cursor()
         db_cursor.execute(sql)
         details = db_cursor.fetchone()
@@ -116,8 +116,8 @@ for f in files:
             group_name_fin = filename_extract.replace("." + filename_extract.split(".")[-1], "")
             group_name_fin_db = group_name_fin.replace(".", "_").replace("-", "_").replace("+", "")
 
-            sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
-            # sql = "INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('sci.homebrew.20140221.mbox', 0, 0 ,1,'sci.homebrew') ON CONFLICT (file_name) DO UPDATE SET processing=1"
+            sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
+            # sql = "INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('sci.homebrew.20140221.mbox', 0, 0 ,1,'sci.homebrew') ON CONFLICT (file_name) DO UPDATE SET processing=1"
             db_cursor = configuration.db_connection.cursor()
             db_cursor.execute(sql)
             configuration.db_connection.commit()
@@ -315,7 +315,7 @@ for f in files:
 
                     # print(message_body)
                     try:
-                        sql = f"INSERT INTO all_messages.\"00_all_updates\"(groupname,perminute) VALUES ((%s), (%s))"
+                        sql = f"INSERT INTO all_messages.__all_updates(groupname,perminute) VALUES ((%s), (%s))"
                         db_cursor = configuration.db_connection.cursor()
                         db_cursor.execute(sql, (filename, messages_per_minute1))
                         configuration.db_connection.commit()
@@ -324,12 +324,12 @@ for f in files:
                         print(err.pgerror)
 
                     # Delete all execept last 100 most recent update messages
-                    sql = f"DELETE FROM all_messages.\"00_all_updates\" WHERE id <= (SELECT id FROM (SELECT id FROM all_messages.\"00_all_updates\" ORDER BY id DESC LIMIT 1 OFFSET 100) foo);"
+                    sql = f"DELETE FROM all_messages.__all_updates WHERE id <= (SELECT id FROM (SELECT id FROM all_messages.__all_updates ORDER BY id DESC LIMIT 1 OFFSET 100) foo);"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     db_cursor.close()
 
-                    sql = f"select SUM(perminute) from all_messages.\"00_all_updates\" where id in (SELECT MAX(id) as t FROM all_messages.\"00_all_updates\" WHERE tstamp >= (now() - INTERVAL '1 MINUTE') group by groupname);"
+                    sql = f"select SUM(perminute) from all_messages.__all_updates where id in (SELECT MAX(id) as t FROM all_messages.__all_updates WHERE tstamp >= (now() - INTERVAL '1 MINUTE') group by groupname);"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     messages_per_minute1 = db_cursor.fetchone()[0]
@@ -712,13 +712,13 @@ for f in files:
                 # group_name_fin = file_name
                 # update DB - marked file as not being processed anymore
                 if processing_message_counter == all_count:
-                    sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
+                    sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
                     db_cursor.close()
                 else:
-                    sql = f"INSERT INTO all_messages.\"00_all_files\"(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
+                    sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
