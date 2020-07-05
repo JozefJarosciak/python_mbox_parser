@@ -322,6 +322,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Exception #: 5")
+                        messages_per_minute1 = 0
                         #exit()
 
                     # print(message_body)
@@ -332,7 +333,6 @@ for f in files:
                         configuration.db_connection.commit()
                         db_cursor.close()
                     except Exception as err:
-                        print(err.pgerror)
                         print("Exception #: 6")
                         #exit()
 
