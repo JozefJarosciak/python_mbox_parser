@@ -4,18 +4,18 @@ import psycopg2
 from psycopg2 import OperationalError, errorcodes, errors
 
 try:
-    db_connection = psycopg2.connect(host="192.168.1.174", user="postgres", password="", port="5432", database="usenetarchives")
+    db_connection = psycopg2.connect(host="95.217.145.210", user="postgres", password="Molinare197412", port="5432", database="usenetarchives")
 except Exception as e:
     print(e)
 
 # Set initial path for processing GZIPPED MBOX files
-#path = r"E:\GiganewsArchivesProcessing"
-#processed_path = r"E:\GiganewsArchivesProcessed\\"
-#path2unzip = r"c:/tmp/"
+path = r"E:\GiganewsArchivesProcessing"
+processed_path = r"E:\GiganewsArchivesProcessed\\"
+path2unzip = r"c:/tmp/"
 
-path = r"/mnt/usb37t/GiganewsArchivesProcessing"
-processed_path = r"/mnt/usb37t/GiganewsArchivesProcessed"
-path2unzip = r"/mnt/usb37t/GiganewsArchivesTmp/"
+#path = r"/mnt/usb37t/GiganewsArchivesProcessing"
+#processed_path = r"/mnt/usb37t/GiganewsArchivesProcessed"
+#path2unzip = r"/mnt/usb37t/GiganewsArchivesTmp/"
 
 timezone_info = {
     "A": 1 * 3600,

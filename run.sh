@@ -1,3 +1,3 @@
 #!/bin/sh
-cd /mnt/python_mbox_parser
-nohup python3 mbox.py &
+cd /root/python_mbox_parser
+python3 mbox.py &

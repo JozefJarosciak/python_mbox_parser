@@ -583,6 +583,7 @@ for f in files:
                     db_cursor.close()
                 except Exception:
                     db_cursor.close()
+                    print(query)
                     print("Exception #: 9")
                     try:
                         # Check If MSG ID already in db
@@ -594,6 +595,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Passing: " + parsed_message_id)
+                        print(query)
                         print("Exception #: 10")
                         db_cursor.close()
                         msg_exist = False
