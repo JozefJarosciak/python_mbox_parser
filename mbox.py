@@ -582,8 +582,8 @@ for f in files:
                     msg_exist = db_cursor.fetchone()[0]
                     db_cursor.close()
                 except Exception:
-                    db_cursor.close()
                     print("Exception #: 9")
+                    db_cursor.close()
                     try:
                         # Check If MSG ID already in db
                         db_cursor = configuration.db_connection.cursor()
