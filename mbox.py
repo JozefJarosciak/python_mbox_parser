@@ -127,7 +127,7 @@ for f in files:
                 db_cursor.close()
             except Exception:
                 print("Exception #: 3")
-                exit()
+                #exit()
 
 
             # Create tables for a new group
@@ -183,7 +183,7 @@ for f in files:
 
         except Exception:
             print("Exception #: 4")
-            exit()
+            #exit()
 
         count = count + 1
         # Set initial path for where to unzip MBOX files
@@ -322,7 +322,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Exception #: 5")
-                        exit()
+                        #exit()
 
                     # print(message_body)
                     try:
@@ -334,7 +334,7 @@ for f in files:
                     except Exception as err:
                         print(err.pgerror)
                         print("Exception #: 6")
-                        exit()
+                        #exit()
 
                     # Delete all execept last 100 most recent update messages
                     try:
@@ -344,7 +344,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Exception #: 7")
-                        exit()
+                        #exit()
 
                     try:
                         sql = f"select SUM(perminute) from all_messages.__all_updates where id in (SELECT MAX(id) as t FROM all_messages.__all_updates WHERE tstamp >= (now() - INTERVAL '1 MINUTE') group by groupname);"
@@ -362,7 +362,7 @@ for f in files:
                             groupnum(messages_per_minute1 * 60 * 24 * 365)) + " year)")
                     except Exception:
                         print("Exception #: 8")
-                        exit()
+                        #exit()
 
                 # RESET ALL VARS
                 parsed_encoding = None
