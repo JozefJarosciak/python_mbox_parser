@@ -678,7 +678,7 @@ for f in files:
                                     inserted_from_id = db_cursor.fetchone()[0]
                                     db_cursor.close()
                         # Add a header info - pass in the subject line id from the previous statement
-
+#
                         if parsed_ref:
                             has_ref = 1
                         else:
