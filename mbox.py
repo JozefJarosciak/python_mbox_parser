@@ -118,16 +118,16 @@ for f in files:
             group_name_fin = filename_extract.replace("." + filename_extract.split(".")[-1], "")
             group_name_fin_db = group_name_fin.replace(".", "_").replace("-", "_").replace("+", "")
 
-        try:
-            sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
-            # sql = "INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('sci.homebrew.20140221.mbox', 0, 0 ,1,'sci.homebrew') ON CONFLICT (file_name) DO UPDATE SET processing=1"
-            db_cursor = configuration.db_connection.cursor()
-            db_cursor.execute(sql)
-            configuration.db_connection.commit()
-            db_cursor.close()
-        except Exception:
-            print("Exception #: 3")
-            exit()
+            try:
+                sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
+                # sql = "INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('sci.homebrew.20140221.mbox', 0, 0 ,1,'sci.homebrew') ON CONFLICT (file_name) DO UPDATE SET processing=1"
+                db_cursor = configuration.db_connection.cursor()
+                db_cursor.execute(sql)
+                configuration.db_connection.commit()
+                db_cursor.close()
+            except Exception:
+                print("Exception #: 3")
+                exit()
 
 
             # Create tables for a new group
