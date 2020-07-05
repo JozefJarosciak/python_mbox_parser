@@ -100,6 +100,7 @@ for f in files:
         last_message_count = 0
         is_file_being_processed = 0
         print("Exception #: 1")
+        db_cursor.close()
 
     if (current_position_in_db > 0) and (current_position_in_db == last_message_count):
         # Move a file from the directory d1 to d2
@@ -127,6 +128,7 @@ for f in files:
                 db_cursor.close()
             except Exception:
                 print("Exception #: 3")
+                db_cursor.close()
                 #exit()
 
 
@@ -183,6 +185,7 @@ for f in files:
 
         except Exception:
             print("Exception #: 4")
+            db_cursor.close()
             #exit()
 
         count = count + 1
@@ -322,6 +325,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Exception #: 5")
+                        db_cursor.close()
                         messages_per_minute1 = 0
                         #exit()
 
@@ -334,6 +338,7 @@ for f in files:
                         db_cursor.close()
                     except Exception as err:
                         print("Exception #: 6")
+                        db_cursor.close()
                         #exit()
 
                     # Delete all execept last 100 most recent update messages
@@ -344,6 +349,7 @@ for f in files:
                         db_cursor.close()
                     except Exception:
                         print("Exception #: 7")
+                        db_cursor.close()
                         #exit()
 
                     try:
@@ -362,6 +368,7 @@ for f in files:
                             groupnum(messages_per_minute1 * 60 * 24 * 365)) + " year)")
                     except Exception:
                         print("Exception #: 8")
+                        db_cursor.close()
                         #exit()
 
                 # RESET ALL VARS
@@ -575,6 +582,7 @@ for f in files:
                     msg_exist = db_cursor.fetchone()[0]
                     db_cursor.close()
                 except Exception:
+                    db_cursor.close()
                     print("Exception #: 9")
                     try:
                         # Check If MSG ID already in db
@@ -587,6 +595,7 @@ for f in files:
                     except Exception:
                         print("Passing: " + parsed_message_id)
                         print("Exception #: 10")
+                        db_cursor.close()
                         msg_exist = False
                     pass
 
@@ -604,6 +613,7 @@ for f in files:
                             db_cursor.close()
                         except Exception:
                             print("Exception #: 11")
+                            db_cursor.close()
                             #exit()
                             if inserted_subject_id is None:
                                 try:
@@ -617,6 +627,7 @@ for f in files:
                                     db_cursor.close()
                                 except Exception:
                                     print("Exception #: 12")
+                                    db_cursor.close()
                                     #exit()
                                     try:
                                         parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
@@ -628,6 +639,7 @@ for f in files:
                                         db_cursor.close()
                                     except Exception:
                                         print("Exception #: 13")
+                                        db_cursor.close()
                                         #exit()
                                         pass
 
@@ -642,6 +654,7 @@ for f in files:
                             db_cursor.close()
                         except Exception:
                             print("Exception #: 14")
+                            db_cursor.close()
                             #exit()
                             if inserted_from_id is None:
                                 try:
@@ -655,6 +668,7 @@ for f in files:
                                     db_cursor.close()
                                 except Exception:
                                     print("Exception #: 15")
+                                    db_cursor.close()
                                     #exit()
                                     parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from_original)
                                     sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
@@ -681,6 +695,7 @@ for f in files:
                             db_cursor.close()
                         except Exception:
                             print("Exception #: 16")
+                            db_cursor.close()
                             #exit()
                             print('Duplicate MSG ID: ' + parsed_message_id)
 
@@ -697,6 +712,7 @@ for f in files:
                                     db_cursor.close()
                                 except Exception:
                                     print("Exception #: 17")
+                                    db_cursor.close()
                                     #exit()
                                     pass
                         try:
@@ -707,6 +723,7 @@ for f in files:
                             db_cursor.close()
                         except Exception:
                             print("Exception #: 18")
+                            db_cursor.close()
                             try:
                                 parsed_body_text = parsed_body_text.encode("ascii", "ignore").decode()
                                 parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
@@ -717,6 +734,7 @@ for f in files:
                                 db_cursor.close()
                             except Exception:
                                 print("Exception #: 19")
+                                db_cursor.close()
                                 #parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
                                 try:
                                     parsed_body_text = re.sub(r'[^\x00-\x7f]', r'', parsed_body_text)
@@ -727,6 +745,7 @@ for f in files:
                                     db_cursor.close()
                                 except Exception:
                                     print("Exception #: 19")
+                                    db_cursor.close()
                                     continue
 
 
@@ -761,6 +780,7 @@ for f in files:
                         db_cursor.close()
                     except Exception as err:
                         print("Exception #: 21")
+                        db_cursor.close()
                 else:
                     try:
                         sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
@@ -770,6 +790,7 @@ for f in files:
                         db_cursor.close()
                     except Exception as err:
                         print("Exception #: 22")
+                        db_cursor.close()
 
         # remove temp file
 if os.path.exists(where2unzip):
