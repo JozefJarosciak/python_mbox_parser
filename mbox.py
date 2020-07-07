@@ -99,7 +99,7 @@ for f in files:
         current_position_in_db = 0
         last_message_count = 0
         is_file_being_processed = 0
-        print("Exception #: 1")
+        #print("Exception #: 1")
         db_cursor.close()
 
     if (current_position_in_db > 0) and (current_position_in_db == last_message_count):
@@ -108,7 +108,7 @@ for f in files:
             shutil.move(f, configuration.processed_path + filename + '.gz')
             print("Moving File: " + filename + ".gz")
         except Exception:
-            print("Exception #: 2")
+            #print("Exception #: 2")
             pass
 
     if (file_name == "") or (
@@ -118,6 +118,8 @@ for f in files:
             filename_extract = filename.replace(".mbox", "")
             group_name_fin = filename_extract.replace("." + filename_extract.split(".")[-1], "")
             group_name_fin_db = group_name_fin.replace(".", "_").replace("-", "_").replace("+", "")
+            if len(group_name_fin_db) > 45:
+                group_name_fin_db = group_name_fin_db[-45:]
 
             try:
                 sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}', 0, 0 ,1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET processing=1"
@@ -127,7 +129,7 @@ for f in files:
                 configuration.db_connection.commit()
                 db_cursor.close()
             except Exception:
-                print("Exception #: 3")
+                #print("Exception #: 3")
                 db_cursor.close()
                 #exit()
 
@@ -171,11 +173,11 @@ for f in files:
                     configuration.db_connection.commit()
                     db_cursor.close()
 
-                    sql = f"create unique index {group_name_fin_db}_headers_id_uindex on all_messages.{group_name_fin_db}_headers(id);" \
-                          f"create unique index {group_name_fin_db}_headers_id_umsgid on all_messages.{group_name_fin_db}_headers(msg_id);" \
-                          f"create unique index {group_name_fin_db}_body_id_uindex on all_messages.{group_name_fin_db}_body(id);" \
-                          f"create unique index {group_name_fin_db}_from_id_uindex on all_messages.{group_name_fin_db}_from(data);" \
-                          f"create unique index {group_name_fin_db}_subjects_id_uindex on all_messages.{group_name_fin_db}_subjects(subject);"
+                    sql = f"create unique index {group_name_fin_db}_headers_uiidx on all_messages.{group_name_fin_db}_headers(id);" \
+                          f"create unique index {group_name_fin_db}_headers_umidx on all_messages.{group_name_fin_db}_headers(msg_id);" \
+                          f"create unique index {group_name_fin_db}_body_idx on all_messages.{group_name_fin_db}_body(id);" \
+                          f"create unique index {group_name_fin_db}_from_idx on all_messages.{group_name_fin_db}_from(data);" \
+                          f"create unique index {group_name_fin_db}_subjects_idx on all_messages.{group_name_fin_db}_subjects(subject);"
                     db_cursor = configuration.db_connection.cursor()
                     db_cursor.execute(sql)
                     configuration.db_connection.commit()
@@ -184,7 +186,7 @@ for f in files:
                     pass
 
         except Exception:
-            print("Exception #: 4")
+            #print("Exception #: 4")
             db_cursor.close()
             #exit()
 
@@ -324,7 +326,7 @@ for f in files:
                         messages_per_minute1 = db_cursor.fetchone()[0]
                         db_cursor.close()
                     except Exception:
-                        print("Exception #: 5")
+                        #print("Exception #: 5")
                         db_cursor.close()
                         messages_per_minute1 = 0
                         #exit()
@@ -337,7 +339,7 @@ for f in files:
                         configuration.db_connection.commit()
                         db_cursor.close()
                     except Exception as err:
-                        print("Exception #: 6")
+                        #print("Exception #: 6")
                         db_cursor.close()
                         #exit()
 
@@ -348,7 +350,7 @@ for f in files:
                         db_cursor.execute(sql)
                         db_cursor.close()
                     except Exception:
-                        print("Exception #: 7")
+                        #print("Exception #: 7")
                         db_cursor.close()
                         #exit()
 
@@ -367,7 +369,7 @@ for f in files:
                             groupnum(messages_per_minute1 * 60 * 24)) + " day, " + str(
                             groupnum(messages_per_minute1 * 60 * 24 * 365)) + " year)")
                     except Exception:
-                        print("Exception #: 8")
+                        #print("Exception #: 8")
                         db_cursor.close()
                         #exit()
 
@@ -577,68 +579,73 @@ for f in files:
                     # Check If MSG ID already in db
                     db_cursor = configuration.db_connection.cursor()
                     parsed_message_id = removeNonAscii(parsed_message_id)
-                    query = f"select exists (select * from all_messages.{group_name_fin_db}_headers where msg_id=\'" + parsed_message_id + "\');"
+                    query = f"select count(*) from all_messages.{group_name_fin_db}_headers where msg_id='" + parsed_message_id + "';"
                     db_cursor.execute(query)
                     msg_exist = db_cursor.fetchone()[0]
+                    #print("message_exists:")
+                    #print(msg_exist)
                     db_cursor.close()
                 except Exception:
-                    print("Exception #: 9")
+                    #print("Exception #: 9")
+                    print(query)
                     db_cursor.close()
                     try:
                         # Check If MSG ID already in db
                         db_cursor = configuration.db_connection.cursor()
 
-                        query = f"select exists (select * from all_messages.{group_name_fin_db}_headers where msg_id=\'{parsed_message_id}\')"
+                        query = f"select count(*) from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}'"
                         db_cursor.execute(query)
                         msg_exist = db_cursor.fetchone()[0]
+                        #print("message_exists:")
+                        #print(msg_exist)
                         db_cursor.close()
                     except Exception:
                         print("Passing: " + parsed_message_id)
-                        print("Exception #: 10")
+                        #print("Exception #: 10")
                         db_cursor.close()
                         msg_exist = False
                     pass
 
 
             # Continue only if MSG not in the headers db
-                if not msg_exist:
-                    try:
+                if msg_exist == 0:
+                    #try:
                         try:
                             # Add a unique subject line
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) RETURNING id"
                             db_cursor = configuration.db_connection.cursor()
                             db_cursor.execute(sql, (parsed_subject, parsed_subject))
                             configuration.db_connection.commit()
                             inserted_subject_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            print("Exception #: 11")
+                            #print("Exception #: 11")
                             db_cursor.close()
                             #exit()
                             if inserted_subject_id is None:
                                 try:
                                     parsed_subject = parsed_subject.encode("ascii", "ignore").decode()
                                     parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject)
-                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) RETURNING id"
                                     db_cursor = configuration.db_connection.cursor()
                                     db_cursor.execute(sql, (parsed_subject, parsed_subject))
                                     configuration.db_connection.commit()
                                     inserted_subject_id = db_cursor.fetchone()[0]
                                     db_cursor.close()
                                 except Exception:
-                                    print("Exception #: 12")
+                                    #print("Exception #: 12")
                                     db_cursor.close()
                                     #exit()
                                     try:
                                         parsed_subject = re.sub(r'[^\x00-\x7f]', r'', parsed_subject_original)
-                                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) returning id"
+                                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_subjects(subject) VALUES ((%s)) ON CONFLICT(subject) DO UPDATE SET subject=(%s) RETURNING id"
                                         db_cursor = configuration.db_connection.cursor()
                                         db_cursor.execute(sql, (parsed_subject, parsed_subject))
                                         configuration.db_connection.commit()
                                         inserted_subject_id = db_cursor.fetchone()[0]
                                         db_cursor.close()
                                     except Exception:
-                                        print("Exception #: 13")
+                                        #print("Exception #: 13")
                                         db_cursor.close()
                                         #exit()
                                         pass
@@ -646,39 +653,67 @@ for f in files:
 
                         try:
                             # Add a unique from line
-                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
+                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES (%s) ON CONFLICT(data) DO UPDATE SET data=(%s) RETURNING id"
                             db_cursor = configuration.db_connection.cursor()
                             db_cursor.execute(sql, (parsed_from, parsed_from))
                             configuration.db_connection.commit()
                             inserted_from_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            print("Exception #: 14")
+                            #print("Exception #: 13")
+                            print(group_name_fin_db)
                             db_cursor.close()
-                            #exit()
                             if inserted_from_id is None:
                                 try:
                                     parsed_from = parsed_from.encode("ascii", "ignore").decode()
                                     parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from)
-                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
+                                    #print("Exception #: 14")
+                                    print(parsed_from)
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES (%s) ON CONFLICT(data) DO UPDATE SET data=(%s) RETURNING id"
                                     db_cursor = configuration.db_connection.cursor()
                                     db_cursor.execute(sql, (parsed_from, parsed_from))
                                     configuration.db_connection.commit()
                                     inserted_from_id = db_cursor.fetchone()[0]
                                     db_cursor.close()
                                 except Exception:
-                                    print("Exception #: 15")
-                                    db_cursor.close()
-                                    #exit()
-                                    parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from_original)
-                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) returning id"
-                                    db_cursor = configuration.db_connection.cursor()
-                                    db_cursor.execute(sql, (parsed_from, parsed_from))
-                                    configuration.db_connection.commit()
-                                    inserted_from_id = db_cursor.fetchone()[0]
-                                    db_cursor.close()
+                                    try:
+                                        db_cursor.close()
+                                        parsed_from = re.sub(r'[^\x00-\x7f]', r'', parsed_from_original)
+                                        #print("Exception #: 15")
+                                        print(parsed_from)
+                                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES (%s) ON CONFLICT(data) DO UPDATE SET data=(%s) RETURNING id"
+                                        db_cursor = configuration.db_connection.cursor()
+                                        db_cursor.execute(sql, (parsed_from, parsed_from))
+                                        configuration.db_connection.commit()
+                                        inserted_from_id = db_cursor.fetchone()[0]
+                                        db_cursor.close()
+                                    except Exception:
+                                        try:
+                                            db_cursor.close()
+                                            parsed_from = re.search(r'<(.*?)>', parsed_from).group(1)
+                                            #print("Exception #: 16")
+                                            print(parsed_from)
+                                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ('{parsed_from}') ON CONFLICT(data) DO UPDATE SET data=('{parsed_from}') RETURNING id"
+                                            print(sql)
+                                            db_cursor = configuration.db_connection.cursor()
+                                            print("ss1")
+                                            db_cursor.execute(sql)
+                                            print("ss2")
+                                            configuration.db_connection.commit()
+                                            print("ss3")
+                                            inserted_from_id = db_cursor.fetchone()[0]
+                                            print(inserted_from_id)
+                                            db_cursor.close()
+                                        except Exception:
+                                            #print("Exception #: 17a")
+                                            #exit()
+                                            pass
                         # Add a header info - pass in the subject line id from the previous statement
 #
+                        if not inserted_from_id:
+                            print("I couldn't get inserted_from_id!")
+                            exit()
+
                         if parsed_ref:
                             has_ref = 1
                         else:
@@ -694,7 +729,7 @@ for f in files:
                             inserted_header_id = db_cursor.fetchone()[0]
                             db_cursor.close()
                         except Exception:
-                            print("Exception #: 16")
+                            #print("Exception #: 16a")
                             db_cursor.close()
                             #exit()
                             print('Duplicate MSG ID: ' + parsed_message_id)
@@ -711,7 +746,7 @@ for f in files:
                                     configuration.db_connection.commit()
                                     db_cursor.close()
                                 except Exception:
-                                    print("Exception #: 17")
+                                    #print("Exception #: 17")
                                     db_cursor.close()
                                     #exit()
                                     pass
@@ -722,7 +757,7 @@ for f in files:
                             configuration.db_connection.commit()
                             db_cursor.close()
                         except Exception:
-                            print("Exception #: 18")
+                            #print("Exception #: 18")
                             db_cursor.close()
                             try:
                                 parsed_body_text = parsed_body_text.encode("ascii", "ignore").decode()
@@ -733,7 +768,7 @@ for f in files:
                                 configuration.db_connection.commit()
                                 db_cursor.close()
                             except Exception:
-                                print("Exception #: 19")
+                                #print("Exception #: 19")
                                 db_cursor.close()
                                 #parsed_body_text = parsed_body_text_original.encode('utf-8', 'surrogateescape').decode('ANSI')
                                 try:
@@ -744,53 +779,61 @@ for f in files:
                                     configuration.db_connection.commit()
                                     db_cursor.close()
                                 except Exception:
-                                    print("Exception #: 19")
+                                    #print("Exception #: 19")
                                     db_cursor.close()
                                     continue
 
 
-                    except Exception as err:
-                        print("Exception #: 20")
-                        print("------------------------")
-                        print("-*-" + str(sql) + "-*-")
-                        print("-*-" + str(parsed_message_id) + "-*-")
-                        print("-*-" + str(parsed_date) + "-*-")
-                        print("-*-" + str(parsed_from) + "-*-")
-                        print("-*-" + str(parsed_subject) + "-*-")
-                        print("-*-" + str(parsed_ref) + "-*-")
-                        print("-*-" + str(parsed_encoding) + "-*-")
-                        print("-*-" + str(parsed_content_type) + "-*-")
-                        print("-*-" + str(parsed_body_text) + "-*-")
-                        print("------------------------")
-                        print_psycopg2_exception(err)
-                        print(str(processing_message_counter) + " - " + str(err))
-                        print("------------------------")
+                   # except Exception as err:
+                   #     #print("Exception #: 20")
+                   #     print("------------------------")
+                   #     print("-*-" + str(sql) + "-*-")
+                   #     print("-*-" + str(parsed_message_id) + "-*-")
+                   #     print("-*-" + str(parsed_date) + "-*-")
+                   #     print("-*-" + str(parsed_from) + "-*-")
+                   #     print("-*-" + str(parsed_subject) + "-*-")
+                   #     print("-*-" + str(parsed_ref) + "-*-")
+                   #     print("-*-" + str(parsed_encoding) + "-*-")
+                   #    print("-*-" + str(parsed_content_type) + "-*-")
+                   #    print("-*-" + str(parsed_body_text) + "-*-")
+                   #    print("------------------------")
+                   #     print_psycopg2_exception(err)
+                   #    print(str(processing_message_counter) + " - " + str(err))
+                   #    print("------------------------")
 
 
                 all_count = int(mbox._next_key)
                 # group_name_fin = file_name
                 # update DB - marked file as not being processed anymore
+                #print("Final Group Name: " + group_name_fin)
+                group_name_fin = re.sub('\s+',' ',group_name_fin)
+                #print("Final Group Name 2: " + group_name_fin)
 
                 if processing_message_counter == all_count:
+
                     try:
                         sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},0,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=0"
+                        #print(sql)
                         db_cursor = configuration.db_connection.cursor()
                         db_cursor.execute(sql)
-                        configuration.db_connection.commit()
+                        #configuration.db_connection.commit()
                         db_cursor.close()
                     except Exception as err:
-                        print("Exception #: 21")
+                        #print("Exception #: 21")
                         db_cursor.close()
+                        exit()
                 else:
                     try:
                         sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter},{all_count},1,'{group_name_fin}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={all_count}, processing=1"
+                        #print(sql)
                         db_cursor = configuration.db_connection.cursor()
                         db_cursor.execute(sql)
-                        configuration.db_connection.commit()
+                        #configuration.db_connection.commit()
                         db_cursor.close()
                     except Exception as err:
-                        print("Exception #: 22")
+                        #print("Exception #: 22")
                         db_cursor.close()
+                        exit()
 
         # remove temp file
 if os.path.exists(where2unzip):
