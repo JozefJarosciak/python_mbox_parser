@@ -73,7 +73,7 @@ for x in range(len(groups)):
                                  and is_file_being_processed == 0) or (current_position_in_db < last_message_count
                                                                        and is_file_being_processed == 0):
 
-            group_name_fin_db = groupName.replace(".", "_").replace("-", "_").replace("+", "")
+            group_name_fin_db = groupName.replace(".", "_").replace("-", "_").replace("+", "_")
             if len(group_name_fin_db) > 45:
                 group_name_fin_db = group_name_fin_db[-45:]
 
@@ -236,6 +236,7 @@ for x in range(len(groups)):
             resp, count, first, last, name = nntp_connection.group(groupName)
             all_count = last
             count_really_inserted = 0
+            count_emptybody_inserted = 0
 
             if first < current_position_in_db:
                 first = current_position_in_db
@@ -248,7 +249,7 @@ for x in range(len(groups)):
             #     end = first+configuration.syncInTiersOfNumPosts
 
             end = all_count
-            print(first, end)
+            print("Processing: ", first, end)
 
             try:
                 resp, overviews = nntp_connection.over((first, end))
@@ -319,12 +320,16 @@ for x in range(len(groups)):
                             groupnum(messages_per_minute1)) + " msgs/min (" + str(
                             groupnum(messages_per_minute1 * 60)) + " hr, " + str(
                             groupnum(messages_per_minute1 * 60 * 24)) + " day, " + str(
-                            parsed_date) + " - Added: " + str(count_really_inserted))
+                            parsed_date) + " - Added: " + str(count_really_inserted) + " - Empty Body Added: " + str(count_emptybody_inserted))
                     except Exception:
                         # print("Exception #: 8")
                         # db_cursor.close()
                         # exit()
                         pass
+
+                if count_emptybody_inserted>10:
+                    print("Empty Body Inserted Count: ", count_emptybody_inserted)
+                    #exit(0)
 
                 # RESET ALL VARS
                 parsed_encoding = "utf-8"
@@ -424,10 +429,14 @@ for x in range(len(groups)):
                     parsed_message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 
                 # DATA CLEAN UP - message_subject
+                stringType = None
                 if parsed_subject:
                     parsed_subject = clean_string(parsed_subject, parsed_encoding)
+                    if '\\u' in ascii(parsed_subject):
+                        parsed_subject = ascii(parsed_subject)
                     if len(parsed_subject) > 250:
                         parsed_subject = parsed_subject.split("=?")[0]
+
 
                 # DATA CLEAN UP - message_subject
                 if parsed_from:
@@ -439,15 +448,19 @@ for x in range(len(groups)):
                 inserted_subject_id = None
                 inserted_from_id = None
                 inserted_header_id = None
-
+                msg_exist = 0
                 try:
                     # Check If MSG ID already in db
                     # db_cursor.close()
                     # db_cursor = configuration.db_connection.cursor()
                     parsed_message_id = removeNonAscii(parsed_message_id)
-                    query = f"select count(*) from all_messages.{group_name_fin_db}_headers where msg_id='" + parsed_message_id + "';"
+                    query = f"select id from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}';"
                     db_cursor.execute(query)
-                    msg_exist = db_cursor.fetchone()[0]
+                    inserted_header_id = db_cursor.fetchone()[0]
+                    if inserted_header_id:
+                        msg_exist = 1
+                    else:
+                        inserted_header_id = None
 
                     # db_cursor.close()
                 except Exception:
@@ -458,9 +471,13 @@ for x in range(len(groups)):
                         # Check If MSG ID already in db
                         # db_cursor = configuration.db_connection.cursor()
 
-                        query = f"select count(*) from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}'"
+                        query = f"select id from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}'"
                         db_cursor.execute(query)
-                        msg_exist = db_cursor.fetchone()[0]
+                        inserted_header_id = db_cursor.fetchone()[0]
+                        if inserted_header_id:
+                            msg_exist = 1
+                        else:
+                            inserted_header_id = None
                         # print("message_exists:")
                         # print(msg_exist)
                         # db_cursor.close()
@@ -468,11 +485,35 @@ for x in range(len(groups)):
                         print("Passing: " + parsed_message_id)
                         # print("Exception #: 10")
                         # db_cursor.close()
-                        msg_exist = False
+                        msg_exist = 0
                     pass
 
+                bodyIsEmpty = 0
+                bodyExist = 1
+                try:
+                    # If Msg exists, let's find if body is empty
+                    if msg_exist == 1:
+                        query = f"select count(*) from all_messages.{group_name_fin_db}_body where id={inserted_header_id} and data=''"
+                        db_cursor.execute(query)
+                        bodyIsEmpty = db_cursor.fetchone()[0]
+                except Exception:
+                    pass
+
+                try:
+                    # If Msg exists, let's find if there is any body entry for this message
+                    if msg_exist == 1:
+                        query = f"select count(*) from all_messages.{group_name_fin_db}_body where id={inserted_header_id}"
+                        db_cursor.execute(query)
+                        bodyExist = db_cursor.fetchone()[0]
+                except Exception:
+                    pass
+
+                #if bodyIsEmpty == 1:                   print("Message Exists but has Empty Body: ", parsed_message_id, query)
+
+                #if bodyExist == 0:                     print("Message Exists but Body Not Exists: ", parsed_message_id, query)
+
                 # Continue only if MSG not in the headers db
-                if msg_exist == 0:
+                if msg_exist == 0 or bodyIsEmpty == 1 or bodyExist == 0:
 
                     # try:
                     try:
@@ -520,14 +561,15 @@ for x in range(len(groups)):
 
                     try:
                         # Add a unique from line
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES (%s) ON CONFLICT(data) DO UPDATE SET data=(%s) RETURNING id"
-                        db_cursor = configuration.db_connection.cursor()
+                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ((%s)) ON CONFLICT(data) DO UPDATE SET data=(%s) RETURNING id"
+                        #db_cursor = configuration.db_connection.cursor()
+                        #print(parsed_from)
                         db_cursor.execute(sql, (parsed_from, parsed_from))
                         configuration.db_connection.commit()
                         inserted_from_id = db_cursor.fetchone()[0]
                     except Exception:
                         # print("Exception #: 13")
-                        print(group_name_fin_db)
+                        print(group_name_fin_db, sql)
                         if inserted_from_id is None:
                             try:
                                 # db_cursor.close()
@@ -558,17 +600,17 @@ for x in range(len(groups)):
                                         # db_cursor.close()
                                         parsed_from = re.search(r'<(.*?)>', parsed_from).group(1)
                                         # print("Exception #: 16")
-                                        print(parsed_from)
+                                        #print(parsed_from)
                                         sql = f"INSERT INTO all_messages.{group_name_fin_db}_from(data) VALUES ('{parsed_from}') ON CONFLICT(data) DO UPDATE SET data=('{parsed_from}') RETURNING id"
-                                        print(sql)
+                                        #print(sql)
                                         # db_cursor = configuration.db_connection.cursor()
-                                        print("ss1")
+                                        #print("ss1")
                                         db_cursor.execute(sql)
-                                        print("ss2")
+                                        #print("ss2")
                                         configuration.db_connection.commit()
-                                        print("ss3")
+                                        #print("ss3")
                                         inserted_from_id = db_cursor.fetchone()[0]
-                                        print(inserted_from_id)
+                                        #print(inserted_from_id)
                                         # db_cursor.close()
                                     except Exception:
                                         # print("Exception #: 17a")
@@ -577,50 +619,58 @@ for x in range(len(groups)):
                     # Add a header info - pass in the subject line id from the previous statement
                     #
                     if not inserted_from_id:
-                        print("I couldn't get inserted_from_id!")
-                        exit()
+                       if bodyIsEmpty == 1 or bodyExist == 0:
+                           #print("I couldn't get inserted_from_id!")
+                           pass
+                       else:
+                           print("failure - no inserted_from_id", parsed_message_id)
+                           exit()
+
 
                     if parsed_ref:
                         has_ref = 1
                     else:
                         has_ref = 0
 
+
+                    if msg_exist == 0:
+                        try:
+                            # db_cursor.close()
+                            sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
+                            # db_cursor = configuration.db_connection.cursor()
+                            db_cursor.execute(sql, (
+                                parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id,
+                                parsed_encoding,
+                                parsed_content_type))
+                            configuration.db_connection.commit()
+                            inserted_header_id = db_cursor.fetchone()[0]
+                            # db_cursor.close()
+                        except Exception:
+                            # print("Exception #: 16a")
+                            # db_cursor.close()
+                            # exit()
+                            #print('Duplicate MSG ID: ' + parsed_message_id)
+                            pass
+
+                            continue
+
+                        if parsed_ref:
+                            split_refs = parsed_ref.split(' ')
+                            for split in split_refs:
+                                try:
+                                    # db_cursor.close()
+                                    sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
+                                    # db_cursor = configuration.db_connection.cursor()
+                                    db_cursor.execute(sql, (inserted_header_id, split.strip()))
+                                    configuration.db_connection.commit()
+                                    # db_cursor.close()
+                                except Exception:
+                                    # print("Exception #: 17")
+                                    # db_cursor.close()
+                                    # exit()
+                                    pass
+
                     try:
-                        # db_cursor.close()
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_headers(dateparsed, subj_id, ref, msg_id, msg_from, enc, contype) VALUES ((%s), (%s), (%s), (%s), (%s), (%s), (%s)) RETURNING id"
-                        # db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (
-                            parsed_date, inserted_subject_id, has_ref, parsed_message_id, inserted_from_id,
-                            parsed_encoding,
-                            parsed_content_type))
-                        configuration.db_connection.commit()
-                        inserted_header_id = db_cursor.fetchone()[0]
-                        # db_cursor.close()
-                    except Exception:
-                        # print("Exception #: 16a")
-                        # db_cursor.close()
-                        # exit()
-                        print('Duplicate MSG ID: ' + parsed_message_id)
-
-                        continue
-
-                    if parsed_ref:
-                        split_refs = parsed_ref.split(' ')
-                        for split in split_refs:
-                            try:
-                                # db_cursor.close()
-                                sql = f"INSERT INTO all_messages.{group_name_fin_db}_refs(id, ref_msg) VALUES ((%s), (%s));"
-                                # db_cursor = configuration.db_connection.cursor()
-                                db_cursor.execute(sql, (inserted_header_id, split.strip()))
-                                configuration.db_connection.commit()
-                                # db_cursor.close()
-                            except Exception:
-                                # print("Exception #: 17")
-                                # db_cursor.close()
-                                # exit()
-                                pass
-                    try:
-
                         # Get Body
                         bodyError = 0
                         try:
@@ -645,28 +695,30 @@ for x in range(len(groups)):
                                 pass
                             else:
                                 bodyError = 1
-                                print("-------***********ERROR & LINE************------")
-                                print(e)
-                                print(line)
+                                #print("-------***********ERROR & LINE************------")
+                                #print(e)
+                                #print(line)
                                 pass
 
 
-                        if bodyError == 1:
-                            print("-------************MESSAGE ID + FULL BODY***************------")
-                            print(parsed_message_id)
-                            print(parsed_body_text)
-                            print("-------***************************------")
+                        #if bodyError == 1:
+                            #print("-------************MESSAGE ID + FULL BODY***************------")
+                            #print(parsed_message_id)
+                            #print(parsed_body_text)
+                            #print("-------***************************------")
                             #exit(0)
 
                         # db_cursor.close()
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s))"
+                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s)) ON CONFLICT DO NOTHING"
                         # db_cursor = configuration.db_connection.cursor()
-                        db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
-                        configuration.db_connection.commit()
+
                         if len(parsed_body_text) > 0:
+                            db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
+                            configuration.db_connection.commit()
                             # print(inserted_header_id, parsed_message_id, len(parsed_body_text))
                             count_really_inserted = count_really_inserted + 1
                         else:
+                            count_emptybody_inserted = count_emptybody_inserted + 1
                             pass
                             #print(f"{inserted_header_id} - NO BODY")
                         # db_cursor.close()
