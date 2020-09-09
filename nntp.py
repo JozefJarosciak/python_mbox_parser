@@ -327,9 +327,9 @@ for x in range(len(groups)):
                         # exit()
                         pass
 
-                if count_emptybody_inserted>10:
+                if count_emptybody_inserted>20:
                     print("Empty Body Inserted Count: ", count_emptybody_inserted)
-                    #exit(0)
+                    exit(0)
 
                 # RESET ALL VARS
                 parsed_encoding = "utf-8"
