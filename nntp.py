@@ -326,8 +326,8 @@ for x in range(len(groups)):
                         # db_cursor.close()
                         # exit()
                         pass
-
-                if count_emptybody_inserted>20:
+                # something is wrong, too many empty body messages inserted - break the run
+                if count_emptybody_inserted>50:
                     print("Empty Body Inserted Count: ", count_emptybody_inserted)
                     exit(0)
 
@@ -482,7 +482,7 @@ for x in range(len(groups)):
                         # print(msg_exist)
                         # db_cursor.close()
                     except Exception:
-                        print("Passing: " + parsed_message_id)
+                        #print("Passing: " + parsed_message_id)
                         # print("Exception #: 10")
                         # db_cursor.close()
                         msg_exist = 0
@@ -709,17 +709,17 @@ for x in range(len(groups)):
                             #exit(0)
 
                         # db_cursor.close()
-                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s)) ON CONFLICT DO NOTHING"
+                        sql = f"INSERT INTO all_messages.{group_name_fin_db}_body(id,data) VALUES ((%s), (%s)) ON CONFLICT (id) DO UPDATE SET data=(%s)"
                         # db_cursor = configuration.db_connection.cursor()
 
                         if len(parsed_body_text) > 0:
-                            db_cursor.execute(sql, (inserted_header_id, parsed_body_text))
+                            db_cursor.execute(sql, (inserted_header_id, parsed_body_text, parsed_body_text))
                             configuration.db_connection.commit()
                             # print(inserted_header_id, parsed_message_id, len(parsed_body_text))
                             count_really_inserted = count_really_inserted + 1
                         else:
                             count_emptybody_inserted = count_emptybody_inserted + 1
-                            pass
+                            # pass
                             #print(f"{inserted_header_id} - NO BODY")
                         # db_cursor.close()
                         # print('Inserted:' + inserted_header_id)
