@@ -111,9 +111,7 @@ for f in files:
             #print("Exception #: 2")
             pass
 
-    if (file_name == "") or (
-            current_position_in_db == 0 and last_message_count == 0 and is_file_being_processed == 0) or (
-            current_position_in_db < last_message_count and is_file_being_processed == 0):
+    if (file_name == "") or (current_position_in_db == 0 and last_message_count == 0 and is_file_being_processed == 0) or (current_position_in_db < last_message_count and is_file_being_processed == 0):
         try:
             filename_extract = filename.replace(".mbox", "")
             group_name_fin = filename_extract.replace("." + filename_extract.split(".")[-1], "")
@@ -299,7 +297,7 @@ for f in files:
                                 return ""
 
 
-        # Process every single mesage recovered from the MBOX file
+        # Process every single message recovered from the MBOX file
         for message in mbox:
             processing_message_counter = processing_message_counter + 1
 
@@ -835,7 +833,11 @@ for f in files:
                         db_cursor.close()
                         exit()
 
-        # remove temp file
+
+
+
+
+# remove temp file
 if os.path.exists(where2unzip):
     mbox.unlock()
     mbox.close()

@@ -327,7 +327,7 @@ for x in range(len(groups)):
                         # exit()
                         pass
                 # something is wrong, too many empty body messages inserted - break the run
-                if count_emptybody_inserted>50:
+                if count_emptybody_inserted>10:
                     print("Empty Body Inserted Count: ", count_emptybody_inserted)
                     exit(0)
 
@@ -779,7 +779,7 @@ for x in range(len(groups)):
 
                     try:
                         # db_cursor.close()
-                        sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{groupName}',{processing_message_counter},{last},0,'{groupName}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={last}, processing=0"
+                        sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name,tstamp) VALUES ('{groupName}',{processing_message_counter},{last},0,'{groupName}',now()) ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={last}, processing=0,tstamp = now()"
                         # print(sql)
                         # db_cursor = configuration.db_connection.cursor()
                         db_cursor.execute(sql)
@@ -792,8 +792,8 @@ for x in range(len(groups)):
                 else:
                     try:
                         # db_cursor.close()
-                        sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{groupName}',{processing_message_counter},{last},1,'{groupName}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={last}, processing=1"
-                        # print(sql)
+                        sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name,tstamp) VALUES ('{groupName}',{processing_message_counter},{last},1,'{groupName}',now()) ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter}, total={last}, processing=1,tstamp = now()"
+                        # print(sql)tstamp
                         # db_cursor = configuration.db_connection.cursor()
                         db_cursor.execute(sql)
                         configuration.db_connection.commit()
