@@ -23,11 +23,8 @@ from bs4 import UnicodeDammit
 import psycopg2
 import os
 
-# define db connection
-try:
-    db_connection = psycopg2.connect(host="localhost", user="postgres", password="", port="5432", database="usenetarchives")
-except Exception as e:
-    print(e)
+# define DB connection
+db_connection = psycopg2.connect(host="localhost", user="postgres", password="", port="5432", database="utzoo")
 
 # define path to un-tared Utzoo archive
 # for Windows
@@ -634,7 +631,8 @@ for path in Path(positionFilePath.replace("\\counter.txt", "")).rglob('*'):
         if parsed_date_check is None or (parsed_date_check.hour == 0 and parsed_date_check.minute == 0 and parsed_date_check.second == 0 and parsed_date_check.microsecond == 0):
             parsed_date = message['Posted']
             if parsed_date:
-                parsed_date_check = dateutil.parser.parse(parsed_date, tzinfos=timezone_info)
+                #print(parsed_date)
+                parsed_date_check = dateutil.parser.parse(parsed_date.split('(')[0], tzinfos=timezone_info)
         if parsed_date_check is None or (parsed_date_check.hour == 0 and parsed_date_check.minute == 0 and parsed_date_check.second == 0 and parsed_date_check.microsecond == 0):
             parsed_date = message['Received']
             if parsed_date:
