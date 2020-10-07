@@ -4,9 +4,9 @@
 # Author: Jozef Jarosciak #
 # Email: jarosciak@gmail  #
 # License: MIT            #
-##############################################################
-# More Details at: https://www.joe0.com/?p=4678&preview=true #
-##############################################################
+#########################################################
+# Details at: https://www.joe0.com/?p=4678&preview=true #
+#########################################################
 
 from pathlib import Path
 import dateutil.parser
