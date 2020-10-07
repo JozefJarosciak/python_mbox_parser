@@ -24,13 +24,17 @@ import psycopg2
 import os
 
 # define DB connection
-db_connection = psycopg2.connect(host="localhost", user="postgres", password="", port="5432", database="utzoo")
+try:
+    db_connection = psycopg2.connect(host="localhost", user="postgres", password="", port="5432", database="utzoo")
+except Exception as e:
+    print(e)
+    exit(0)
 
 # define path to un-tared Utzoo archive
 # for Windows
 positionFilePath = "E:\\Usenet\\Utzoo\\"
 # for linux:
-# positionFilePath = "/Usenet/Utzoo/"
+# positionFilePath = "/home/utzoo/Utzoo/"
 
 timezone_info = {
     "A": 1 * 3600,
@@ -262,7 +266,6 @@ timezone_info = {
     "Z": 0 * 3600
 }
 
-
 today = date.today()
 print("** START **")
 print("Starting at:", today)
@@ -286,11 +289,7 @@ completeProcessing = 0
 
 positionFilePath = positionFilePath + "counter.txt"
 
-# for linux:
-# for path in Path(positionFilePath.replace("/counter.txt", "")).rglob('*'):
-
-# windows:
-for path in Path(positionFilePath.replace("\\counter.txt", "")).rglob('*'):
+for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter.txt", "")).rglob('*'):
     if os.path.isfile(path):
         counterall = counterall + 1
 
@@ -328,8 +327,9 @@ for path in Path(positionFilePath.replace("\\counter.txt", "")).rglob('*'):
         except Exception as e:
             continue
 
-        if "," in str(message['Newsgroups']):
+        if ("," in str(message['Newsgroups'])) or (" " in str(message['Newsgroups'])):
             groupName = str(message['Newsgroups']).split(",")
+            groupName = str(groupName[0]).split(" ")
             groupName = groupName[0]
         else:
             groupName = message['Newsgroups']
@@ -615,10 +615,16 @@ for path in Path(positionFilePath.replace("\\counter.txt", "")).rglob('*'):
         #   print(message.keys())
         #   print(parsed_subject)
 
-        parsed_date_check = None
-        # print(parsed_date)
         if parsed_date:
-            parsed_date_check = dateutil.parser.parse(parsed_date.upper(), tzinfos=timezone_info)
+            #parsed_date = parsed_date.replace("Wednesday, ", "")
+            #print(parsed_date)
+            try:
+                parsed_date_check = dateutil.parser.parse(parsed_date, tzinfos=timezone_info)
+            except Exception as e:
+                try:
+                    parsed_date_check = dateutil.parser.parse(parsed_date.upper(), tzinfos=timezone_info)
+                except Exception as e:
+                    parsed_date_check = None
 
         if parsed_date_check is None or (parsed_date_check.hour == 0 and parsed_date_check.minute == 0 and parsed_date_check.second == 0 and parsed_date_check.microsecond == 0):
             parsed_date = message['NNTP-Posting-Date']
@@ -744,16 +750,19 @@ for path in Path(positionFilePath.replace("\\counter.txt", "")).rglob('*'):
                 db_cursor = db_connection.cursor()
 
                 query = f"select count(*) from all_messages.{group_name_fin_db}_headers where msg_id='{parsed_message_id}'"
+                print(query)
                 db_cursor.execute(query)
                 msg_exist = db_cursor.fetchone()[0]
                 # print("message_exists:")
                 # print(msg_exist)
                 # #db_cursor.close()
-            except Exception:
+            except Exception as e:
                 print("Passing: " + parsed_message_id)
+                print(e)
+
                 # print("Exception #: 10")
                 # #db_cursor.close()
-                msg_exist = False
+                msg_exist = 1
             pass
 
         # Continue only if MSG not in the headers db
