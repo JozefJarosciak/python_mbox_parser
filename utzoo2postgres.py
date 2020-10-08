@@ -346,10 +346,13 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
         if len(group_name_fin_db) > 45:
             group_name_fin_db = group_name_fin_db[-45:]
 
+        group_name_fin_db = re.sub(r'[^\x00-\x7f]', '', group_name_fin_db)
         # Create tables for a new group
         db_cursor = db_connection.cursor()
-        db_cursor.execute(
-            f"select exists(select * from information_schema.tables where table_name='{group_name_fin_db}_headers')")
+        query = ""
+        query = f"select exists(select * from information_schema.tables where table_name='{group_name_fin_db}_headers')"
+
+        db_cursor.execute(query)
         exist = db_cursor.fetchone()[0]
         # db_cursor.close()
 
