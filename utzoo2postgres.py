@@ -4,9 +4,9 @@
 # Author: Jozef Jarosciak #
 # Email: jarosciak@gmail  #
 # License: MIT            #
-#########################################################
-# Details at: https://www.joe0.com/?p=4678&preview=true #
-#########################################################
+########################################################################################################################
+# Details at: https://www.joe0.com/2020/10/07/converting-utzoo-wiseman-netnews-archive-to-postgresql-using-python-3-8/ #
+########################################################################################################################
 
 from pathlib import Path
 import dateutil.parser
