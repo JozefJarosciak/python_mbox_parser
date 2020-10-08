@@ -719,6 +719,7 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
         # DATA CLEAN UP - message_subject
         if parsed_subject:
             parsed_subject = clean_string(parsed_subject, parsed_encoding)
+            #parsed_subject = re.sub(r'[^\x00-\x7f]', '', parsed_subject)
             if len(parsed_subject) > 250:
                 parsed_subject = parsed_subject.split("=?")[0]
 
@@ -957,9 +958,10 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
         else:
             processing_message_counter[str(groupName)] = processing_message_counter.get(str(groupName), 0) + 1
             print(counterall, "Skipping: ", groupName, path, processing_message_counter.get(str(groupName), 0))
-            if "Re:" in parsed_subject:
-                pass
-                # print(parsed_subject)
+            if parsed_subject:
+                if "Re:" in parsed_subject:
+                    pass
+                    # print(parsed_subject)
 
         # counter
         if os.path.exists(positionFilePath):
@@ -970,3 +972,16 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
             file = open(positionFilePath, 'w')
             file.write(str(counterall))
             file.close()
+
+        # try:
+        #     filename = None
+        #     filename = groupName + ".utzoo"
+        #     sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter.get(str(groupName), 0)},{processing_message_counter.get(str(groupName), 0)},1,'{groupName}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter.get(str(groupName), 0)}, total={processing_message_counter.get(str(groupName), 0)}, processing=1"
+        #     #print(sql)
+        #     db_cursor = db_connection.cursor()
+        #     db_cursor.execute(sql)
+        #     db_connection.commit()
+        #     #db_cursor.close()
+        # except Exception as err:
+        #     print(err)
+        #     exit(0)
