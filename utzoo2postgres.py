@@ -26,13 +26,16 @@ import os
 # define DB connection
 try:
     db_connection = psycopg2.connect(host="localhost", user="postgres", password="", port="5432", database="utzoo")
+
 except Exception as e:
     print(e)
     exit(0)
 
 # define path to un-tared Utzoo archive
 # for Windows
-positionFilePath = "E:\\Usenet\\Utzoo\\"
+#positionFilePath = "E:\\Usenet\\Utzoo\\"
+positionFilePath = "E:\\Usenet\\Utzoo\\news124f1\\b163\\comp\\sys\\mac\\"
+
 # for linux:
 # positionFilePath = "/home/utzoo/Utzoo/"
 
@@ -329,7 +332,15 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
 
         if ("," in str(message['Newsgroups'])) or (" " in str(message['Newsgroups'])):
             groupName = str(message['Newsgroups']).split(",")
-            groupName = str(groupName[0]).split(" ")
+            if "@" in groupName[0] or "..." in groupName[0]:
+                try:
+                    groupName = groupName[1]
+                except Exception as e:
+                    print(e)
+                    exit(0)
+            else:
+                groupName = groupName[0]
+            groupName = str(groupName).split(" ")
             groupName = groupName[0]
         else:
             groupName = message['Newsgroups']
@@ -347,16 +358,20 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
             group_name_fin_db = group_name_fin_db[-45:]
 
         group_name_fin_db = re.sub(r'[^\x00-\x7f]', '', group_name_fin_db)
+        group_name_fin_db = group_name_fin_db.replace('c\b', '').rstrip().lower()
+
+        #print("-"+group_name_fin_db.rstrip()+"-")
+
         # Create tables for a new group
         db_cursor = db_connection.cursor()
         query = ""
-        query = f"select exists(select * from information_schema.tables where table_name='{group_name_fin_db}_headers')"
+        query = f"select exists(select * from information_schema.tables where table_schema = 'all_messages' AND table_name='{group_name_fin_db}_headers')"
 
         db_cursor.execute(query)
         exist = db_cursor.fetchone()[0]
         # db_cursor.close()
 
-        if not exist:
+        if exist is False:
 
             try:
                 sql = f"create table all_messages.{group_name_fin_db}_headers(id bigserial not null constraint {group_name_fin_db}_headers_pk primary key, dateparsed timestamp, subj_id bigint, ref smallint, msg_id text, msg_from bigint, enc text, contype text, processed timestamp default CURRENT_TIMESTAMP);alter table all_messages.{group_name_fin_db}_headers owner to postgres;"
@@ -617,7 +632,7 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
         # if "Re:" in parsed_subject:
         #   print(message.keys())
         #   print(parsed_subject)
-
+        parsed_date_check = None
         if parsed_date:
             #parsed_date = parsed_date.replace("Wednesday, ", "")
             #print(parsed_date)
@@ -973,15 +988,15 @@ for path in Path(positionFilePath.replace("\\counter.txt", "").replace("/counter
             file.write(str(counterall))
             file.close()
 
-        # try:
-        #     filename = None
-        #     filename = groupName + ".utzoo"
-        #     sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter.get(str(groupName), 0)},{processing_message_counter.get(str(groupName), 0)},1,'{groupName}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter.get(str(groupName), 0)}, total={processing_message_counter.get(str(groupName), 0)}, processing=1"
-        #     #print(sql)
-        #     db_cursor = db_connection.cursor()
-        #     db_cursor.execute(sql)
-        #     db_connection.commit()
-        #     #db_cursor.close()
-        # except Exception as err:
-        #     print(err)
-        #     exit(0)
+        try:
+            filename = None
+            filename = groupName + ".utzoo"
+            sql = f"INSERT INTO all_messages.__all_files(file_name, current, total, processing, newsgroup_name) VALUES ('{filename}',{processing_message_counter.get(str(groupName), 0)},{processing_message_counter.get(str(groupName), 0)},1,'{groupName}') ON CONFLICT (file_name) DO UPDATE SET current={processing_message_counter.get(str(groupName), 0)}, total={processing_message_counter.get(str(groupName), 0)}, processing=1"
+            #print(sql)
+            db_cursor = db_connection.cursor()
+            db_cursor.execute(sql)
+            db_connection.commit()
+            #db_cursor.close()
+        except Exception as err:
+            print(err)
+            exit(0)
